@@ -2,13 +2,14 @@
 /*
 Plugin Name: SSSEO Tools
 Description: Modular plugin for SEO and content enhancements.
-Version: 1.0.1
+Version: 1.0.3
 Author: Dave Barry
 Text Domain: ssseo
 */
 
 defined( 'ABSPATH' ) || exit;
 
+require_once __DIR__ . '/github-updater.php';
 
 // -------------------------
 // Load Admin Bar Menu
@@ -213,4 +214,3 @@ function ssseo_enqueue_video_styles() {
         file_exists( $css_path ) ? filemtime( $css_path ) : false
     );
 }
-require_once __DIR__ . '/github-updater.php';
