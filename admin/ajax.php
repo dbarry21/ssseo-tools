@@ -133,3 +133,73 @@ add_action( 'wp_ajax_ssseo_get_meta_history', function () {
 });
 
 
+function ssseo_test_openai_key() {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Unauthorized');
+    }
+
+    $key = sanitize_text_field($_POST['key'] ?? '');
+    if (!$key) {
+        wp_send_json_error('No key provided.');
+    }
+
+    $response = wp_remote_get('https://api.openai.com/v1/models', [
+        'headers' => [
+            'Authorization' => 'Bearer ' . $key,
+        ],
+        'timeout' => 10,
+    ]);
+
+    $timestamp = current_time('mysql');
+
+    if (is_wp_error($response)) {
+        $msg = '❌ ' . $response->get_error_message() . " (tested $timestamp)";
+        update_option('ssseo_openai_test_result', $msg);
+        wp_send_json_error($msg);
+    }
+
+    $code = wp_remote_retrieve_response_code($response);
+    if ($code === 200) {
+        $msg = "✅ OpenAI key is valid (tested $timestamp)";
+        update_option('ssseo_openai_test_result', $msg);
+        wp_send_json_success($msg);
+    }
+
+    $body = json_decode(wp_remote_retrieve_body($response), true);
+    $error = $body['error']['message'] ?? 'Unknown error';
+    $msg = "❌ Invalid: $error (tested $timestamp)";
+    update_option('ssseo_openai_test_result', $msg);
+    wp_send_json_error($msg);
+}
+
+function ssseo_test_maps_key() {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Unauthorized');
+    }
+
+    $key = sanitize_text_field($_POST['key'] ?? '');
+    if (!$key) {
+        wp_send_json_error('No key provided.');
+    }
+
+    $url = "https://maps.googleapis.com/maps/api/staticmap?center=New+York,NY&zoom=10&size=400x200&key=" . urlencode($key);
+    $response = wp_remote_get($url, ['timeout' => 10]);
+    $timestamp = current_time('mysql');
+
+    if (is_wp_error($response)) {
+        $msg = '❌ ' . $response->get_error_message() . " (tested $timestamp)";
+        update_option('ssseo_maps_test_result', $msg);
+        wp_send_json_error($msg);
+    }
+
+    $code = wp_remote_retrieve_response_code($response);
+    if ($code === 200) {
+        $msg = "✅ Maps key is valid (tested $timestamp)";
+        update_option('ssseo_maps_test_result', $msg);
+        wp_send_json_success($msg);
+    } else {
+        $msg = "❌ Invalid or restricted Maps key (tested $timestamp)";
+        update_option('ssseo_maps_test_result', $msg);
+        wp_send_json_error($msg);
+    }
+}

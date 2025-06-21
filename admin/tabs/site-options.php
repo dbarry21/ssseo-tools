@@ -1,110 +1,105 @@
 <?php
 /**
- * Admin UI: Site Options Subtab (Under SSSEO Tools)
- * Version: 1.1
+ * Admin UI: Site Options (Bootstrap + API Test Buttons + Result Storage)
+ * Version: 1.5
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
+if (!defined('ABSPATH')) exit;
 
 // Handle form submission
 if (
-    isset( $_POST['ssseo_siteoptions_nonce'] ) &&
-    wp_verify_nonce( $_POST['ssseo_siteoptions_nonce'], 'ssseo_siteoptions_save' ) &&
-    current_user_can( 'manage_options' )
+    isset($_POST['ssseo_siteoptions_nonce']) &&
+    wp_verify_nonce($_POST['ssseo_siteoptions_nonce'], 'ssseo_siteoptions_save') &&
+    current_user_can('manage_options')
 ) {
-    update_option( 'ssseo_enable_map_as_featured', isset( $_POST['ssseo_enable_map_as_featured'] ) ? '1' : '0' );
+    update_option('ssseo_enable_map_as_featured', isset($_POST['ssseo_enable_map_as_featured']) ? '1' : '0');
+    update_option('ssseo_google_static_maps_api_key', sanitize_text_field($_POST['ssseo_google_static_maps_api_key'] ?? ''));
+    update_option('ssseo_openai_api_key', sanitize_text_field($_POST['ssseo_openai_api_key'] ?? ''));
 
-    update_option(
-        'ssseo_google_static_maps_api_key',
-        sanitize_text_field( $_POST['ssseo_google_static_maps_api_key'] ?? '' )
-    );
-
-    update_option(
-        'ssseo_openai_api_key',
-        sanitize_text_field( $_POST['ssseo_openai_api_key'] ?? '' )
-    );
-
-    update_option(
-        'ssseo_ai_meta_prompt',
-        sanitize_textarea_field( $_POST['ssseo_ai_meta_prompt'] ?? '' )
-    );
-
-    update_option(
-        'ssseo_ai_title_prompt',
-        sanitize_textarea_field( $_POST['ssseo_ai_title_prompt'] ?? '' )
-    );
-
-    echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Site Options saved.', 'ssseo' ) . '</p></div>';
+    echo '<div class="alert alert-success">Site Options saved.</div>';
 }
 
 // Fetch values
-$enable_maps  = get_option( 'ssseo_enable_map_as_featured', '0' );
-$maps_api     = get_option( 'ssseo_google_static_maps_api_key', '' );
-$openai_key   = get_option( 'ssseo_openai_api_key', '' );
+$enable_maps  = get_option('ssseo_enable_map_as_featured', '0');
+$maps_api     = get_option('ssseo_google_static_maps_api_key', '');
+$openai_key   = get_option('ssseo_openai_api_key', '');
 
-$default_meta_prompt  = "Write a concise, SEO-friendly meta description (max 160 characters) for a %s titled “%s”. Use this content as context:\n\n%s";
-$default_title_prompt = "Write a concise, SEO-friendly title (max 60 characters) for a %s. Use this existing title “%s” and content as context:\n\n%s";
-
-$meta_prompt  = get_option( 'ssseo_ai_meta_prompt', $default_meta_prompt );
-$title_prompt = get_option( 'ssseo_ai_title_prompt', $default_title_prompt );
+$last_maps_test   = get_option('ssseo_maps_test_result', 'No test run yet.');
+$last_openai_test = get_option('ssseo_openai_test_result', 'No test run yet.');
 ?>
 
-<form method="post">
-    <?php wp_nonce_field( 'ssseo_siteoptions_save', 'ssseo_siteoptions_nonce' ); ?>
+<form method="post" class="mt-4">
+    <?php wp_nonce_field('ssseo_siteoptions_save', 'ssseo_siteoptions_nonce'); ?>
 
-    <h2><?php esc_html_e( 'Site Options', 'ssseo' ); ?></h2>
-    <table class="form-table">
+    <h2 class="mb-4">Site Options</h2>
 
-        <!-- Enable Google Maps as Featured -->
-        <tr>
-            <th scope="row"><label for="ssseo_enable_map_as_featured"><?php esc_html_e( 'Enable Google Maps as Featured Image', 'ssseo' ); ?></label></th>
-            <td>
-                <input type="checkbox" id="ssseo_enable_map_as_featured" name="ssseo_enable_map_as_featured" value="1" <?php checked( '1', $enable_maps ); ?>>
-                <p class="description"><?php esc_html_e( 'Adds a “Generate Map” option to Service Area featured image box.', 'ssseo' ); ?></p>
-            </td>
-        </tr>
+    <!-- Enable Maps as Featured Image -->
+    <div class="form-check mb-4">
+        <input class="form-check-input" type="checkbox" id="ssseo_enable_map_as_featured" name="ssseo_enable_map_as_featured" value="1" <?php checked('1', $enable_maps); ?>>
+        <label class="form-check-label" for="ssseo_enable_map_as_featured">
+            Enable Google Maps as Featured Image
+        </label>
+        <div class="form-text">Adds a "Generate Map" option to Service Area featured image box.</div>
+    </div>
 
-        <!-- Google Static Maps API Key -->
-        <tr>
-            <th><label for="ssseo_google_static_maps_api_key"><?php esc_html_e( 'Google Static Maps API Key', 'ssseo' ); ?></label></th>
-            <td>
-                <input type="text" id="ssseo_google_static_maps_api_key" name="ssseo_google_static_maps_api_key" value="<?php echo esc_attr( $maps_api ); ?>" class="regular-text">
-                <p class="description"><?php esc_html_e( 'Used for generating featured static map images.', 'ssseo' ); ?></p>
-            </td>
-        </tr>
+    <!-- Google Maps API Key -->
+    <div class="mb-4">
+        <label for="ssseo_google_static_maps_api_key" class="form-label">Google Static Maps API Key</label>
+        <div class="input-group">
+            <input type="text" class="form-control" id="ssseo_google_static_maps_api_key" name="ssseo_google_static_maps_api_key" value="<?php echo esc_attr($maps_api); ?>" placeholder="AIza...">
+            <button class="btn btn-outline-secondary" type="button" id="test-maps-api">Test</button>
+        </div>
+        <div class="form-text">Used for generating featured static map images.</div>
+        <div class="form-text text-muted">Last test: <?php echo esc_html($last_maps_test); ?></div>
+        <div id="maps-api-test-result" class="mt-2"></div>
+    </div>
 
-        <!-- OpenAI API Key -->
-        <tr>
-            <th><label for="ssseo_openai_api_key"><?php esc_html_e( 'OpenAI API Key', 'ssseo' ); ?></label></th>
-            <td>
-                <input type="text" id="ssseo_openai_api_key" name="ssseo_openai_api_key" value="<?php echo esc_attr( $openai_key ); ?>" class="regular-text">
-                <p class="description"><?php esc_html_e( 'Used for AI-powered content generation features.', 'ssseo' ); ?></p>
-            </td>
-        </tr>
+    <!-- OpenAI API Key -->
+    <div class="mb-4">
+        <label for="ssseo_openai_api_key" class="form-label">OpenAI API Key</label>
+        <div class="input-group">
+            <input type="text" class="form-control" id="ssseo_openai_api_key" name="ssseo_openai_api_key" value="<?php echo esc_attr($openai_key); ?>" placeholder="sk-...">
+            <button class="btn btn-outline-secondary" type="button" id="test-openai-api">Test</button>
+        </div>
+        <div class="form-text">Used for AI-powered content generation features.</div>
+        <div class="form-text text-muted">Last test: <?php echo esc_html($last_openai_test); ?></div>
+        <div id="openai-api-test-result" class="mt-2"></div>
+    </div>
 
-        <!-- Meta Description Prompt -->
-        <tr>
-            <th><label for="ssseo_ai_meta_prompt"><?php esc_html_e( 'Meta Description Prompt', 'ssseo' ); ?></label></th>
-            <td>
-                <textarea id="ssseo_ai_meta_prompt" name="ssseo_ai_meta_prompt" rows="5" class="large-text"><?php echo esc_textarea( $meta_prompt ); ?></textarea>
-                <p class="description"><?php esc_html_e( 'Use %s placeholders: (1) post type, (2) title, (3) content.', 'ssseo' ); ?></p>
-            </td>
-        </tr>
-
-        <!-- Yoast Title Prompt -->
-        <tr>
-            <th><label for="ssseo_ai_title_prompt"><?php esc_html_e( 'Yoast Title Prompt', 'ssseo' ); ?></label></th>
-            <td>
-                <textarea id="ssseo_ai_title_prompt" name="ssseo_ai_title_prompt" rows="5" class="large-text"><?php echo esc_textarea( $title_prompt ); ?></textarea>
-                <p class="description"><?php esc_html_e( 'Use %s placeholders: (1) post type, (2) title, (3) content.', 'ssseo' ); ?></p>
-            </td>
-        </tr>
-
-    </table>
-
-    <p>
-        <input type="submit" class="button button-primary" value="<?php esc_attr_e( 'Save Site Options', 'ssseo' ); ?>">
-    </p>
+    <!-- Submit Button -->
+    <button type="submit" class="btn btn-primary">Save Site Options</button>
 </form>
+<script>
+jQuery(function($) {
+  $('#test-openai-api').on('click', function() {
+    const key = $('#ssseo_openai_api_key').val();
+    const resultBox = $('#openai-api-test-result').html('Testing...');
+
+    $.post(ajaxurl, {
+      action: 'ssseo_test_openai_key',
+      key: key
+    }, function(response) {
+      resultBox.html(response.success
+        ? '<span class="text-success">' + response.data + '</span>'
+        : '<span class="text-danger">' + response.data + '</span>'
+      );
+    });
+  });
+
+  $('#test-maps-api').on('click', function() {
+    const key = $('#ssseo_google_static_maps_api_key').val();
+    const resultBox = $('#maps-api-test-result').html('Testing...');
+
+    $.post(ajaxurl, {
+      action: 'ssseo_test_maps_key',
+      key: key
+    }, function(response) {
+      resultBox.html(response.success
+        ? '<span class="text-success">' + response.data + '</span>'
+        : '<span class="text-danger">' + response.data + '</span>'
+      );
+    });
+  });
+});
+</script>
+

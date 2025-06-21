@@ -1,186 +1,107 @@
 <?php
 /**
  * Conditional CPT Registration: Services, Service Areas, Products
- * Registers each CPT only if its “Enable” checkbox is checked in admin settings.
+ * Uses stored admin options for enable, has_archive, and slug values.
  */
 
 function ssseo_register_custom_post_types() {
 
-    /**
-     * 1. Service CPT
-     */
-    if ( get_option( 'ssseo_enable_service_cpt', '0' ) === '1' ) {
-        $service_labels = [
-            'name'                  => _x( 'Services', 'Post Type General Name', 'ssseo' ),
-            'singular_name'         => _x( 'Service', 'Post Type Singular Name', 'ssseo' ),
-            'menu_name'             => __( 'Services', 'ssseo' ),
-            'name_admin_bar'        => __( 'Service', 'ssseo' ),
-            'archives'              => __( 'Service Archives', 'ssseo' ),
-            'attributes'            => __( 'Service Attributes', 'ssseo' ),
-            'parent_item_colon'     => __( 'Parent Service:', 'ssseo' ),
-            'all_items'             => __( 'All Services', 'ssseo' ),
-            'add_new_item'          => __( 'Add New Service', 'ssseo' ),
+    $cpts = [
+        'service' => [
+            'option_key' => 'ssseo_enable_service_cpt',
+            'default_slug' => 'service',
+            'default_archive' => 'services',
+            'menu_position' => 21,
+            'labels' => [
+                'name' => 'Services',
+                'singular' => 'Service',
+            ],
+        ],
+        'service_area' => [
+            'option_key' => 'ssseo_enable_service_area_cpt',
+            'default_slug' => 'service-area',
+            'default_archive' => 'service-areas',
+            'menu_position' => 22,
+            'labels' => [
+                'name' => 'Service Areas',
+                'singular' => 'Service Area',
+            ],
+        ],
+        'product' => [
+            'option_key' => 'ssseo_enable_product_cpt',
+            'default_slug' => 'product',
+            'default_archive' => 'products',
+            'menu_position' => 23,
+            'labels' => [
+                'name' => 'Products',
+                'singular' => 'Product',
+            ],
+        ],
+    ];
+
+    foreach ( $cpts as $post_type => $config ) {
+        $enabled = get_option( $config['option_key'], '0' );
+        if ( $enabled !== '1' ) continue;
+
+        $has_archive = get_option( $config['option_key'] . '_hasarchive', $config['default_archive'] );
+        $slug        = get_option( $config['option_key'] . '_slug', $config['default_slug'] );
+
+        // Fallbacks
+        $has_archive = $has_archive !== '' ? $has_archive : $config['default_archive'];
+        $slug        = $slug !== '' ? $slug : $config['default_slug'];
+
+        $labels = [
+            'name'                  => _x( $config['labels']['name'], 'Post Type General Name', 'ssseo' ),
+            'singular_name'         => _x( $config['labels']['singular'], 'Post Type Singular Name', 'ssseo' ),
+            'menu_name'             => __( $config['labels']['name'], 'ssseo' ),
+            'name_admin_bar'        => __( $config['labels']['singular'], 'ssseo' ),
+            'archives'              => __( $config['labels']['singular'] . ' Archives', 'ssseo' ),
+            'attributes'            => __( $config['labels']['singular'] . ' Attributes', 'ssseo' ),
+            'parent_item_colon'     => __( 'Parent ' . $config['labels']['singular'] . ':', 'ssseo' ),
+            'all_items'             => __( 'All ' . $config['labels']['name'], 'ssseo' ),
+            'add_new_item'          => __( 'Add New ' . $config['labels']['singular'], 'ssseo' ),
             'add_new'               => __( 'Add New', 'ssseo' ),
-            'new_item'              => __( 'New Service', 'ssseo' ),
-            'edit_item'             => __( 'Edit Service', 'ssseo' ),
-            'update_item'           => __( 'Update Service', 'ssseo' ),
-            'view_item'             => __( 'View Service', 'ssseo' ),
-            'view_items'            => __( 'View Services', 'ssseo' ),
-            'search_items'          => __( 'Search Service', 'ssseo' ),
+            'new_item'              => __( 'New ' . $config['labels']['singular'], 'ssseo' ),
+            'edit_item'             => __( 'Edit ' . $config['labels']['singular'], 'ssseo' ),
+            'update_item'           => __( 'Update ' . $config['labels']['singular'], 'ssseo' ),
+            'view_item'             => __( 'View ' . $config['labels']['singular'], 'ssseo' ),
+            'view_items'            => __( 'View ' . $config['labels']['name'], 'ssseo' ),
+            'search_items'          => __( 'Search ' . $config['labels']['singular'], 'ssseo' ),
             'not_found'             => __( 'Not found', 'ssseo' ),
             'not_found_in_trash'    => __( 'Not found in Trash', 'ssseo' ),
             'featured_image'        => __( 'Featured Image', 'ssseo' ),
             'set_featured_image'    => __( 'Set featured image', 'ssseo' ),
             'remove_featured_image' => __( 'Remove featured image', 'ssseo' ),
             'use_featured_image'    => __( 'Use as featured image', 'ssseo' ),
-            'insert_into_item'      => __( 'Insert into Service', 'ssseo' ),
-            'uploaded_to_this_item' => __( 'Uploaded to this Service', 'ssseo' ),
-            'items_list'            => __( 'Services list', 'ssseo' ),
-            'items_list_navigation' => __( 'Services list navigation', 'ssseo' ),
-            'filter_items_list'     => __( 'Filter Services list', 'ssseo' ),
+            'insert_into_item'      => __( 'Insert into ' . $config['labels']['singular'], 'ssseo' ),
+            'uploaded_to_this_item' => __( 'Uploaded to this ' . $config['labels']['singular'], 'ssseo' ),
+            'items_list'            => __( $config['labels']['name'] . ' list', 'ssseo' ),
+            'items_list_navigation' => __( $config['labels']['name'] . ' list navigation', 'ssseo' ),
+            'filter_items_list'     => __( 'Filter ' . $config['labels']['name'] . ' list', 'ssseo' ),
         ];
 
-        $service_args = [
-            'label'               => __( 'Service', 'ssseo' ),
-            'description'         => __( 'Service Description', 'ssseo' ),
-            'labels'              => $service_labels,
+        $args = [
+            'label'               => __( $config['labels']['singular'], 'ssseo' ),
+            'description'         => __( $config['labels']['singular'] . ' Description', 'ssseo' ),
+            'labels'              => $labels,
             'supports'            => [ 'title', 'editor', 'thumbnail', 'excerpt', 'custom-fields', 'page-attributes' ],
             'public'              => true,
             'show_ui'             => true,
             'show_in_menu'        => true,
-            'menu_position'       => 21,
+            'menu_position'       => $config['menu_position'],
             'show_in_admin_bar'   => true,
             'show_in_nav_menus'   => true,
             'can_export'          => true,
-            'has_archive'         => true,
+            'has_archive'         => $has_archive,
             'hierarchical'        => true,
             'exclude_from_search' => false,
             'publicly_queryable'  => true,
             'show_in_rest'        => true,
-            'rewrite'             => [ 'slug' => 'service', 'with_front' => false ],
+            'rewrite'             => [ 'slug' => $slug, 'with_front' => false ],
             'capability_type'     => 'page',
         ];
 
-        register_post_type( 'service', $service_args );
-    }
-
-    /**
-     * 2. Service Area CPT
-     */
-    if ( get_option( 'ssseo_enable_service_area_cpt', '0' ) === '1' ) {
-         $service_area_labels = array(
-        'name'                  => _x('Service Areas', 'Post Type General Name', 'ssseo'),
-        'singular_name'         => _x('Service Area', 'Post Type Singular Name', 'ssseo'),
-        'menu_name'             => __('Service Areas', 'ssseo'),
-        'name_admin_bar'        => __('Service Area', 'ssseo'),
-        'archives'              => __('Service Area Archives', 'ssseo'),
-        'attributes'            => __('Service Area Attributes', 'ssseo'),
-        'parent_item_colon'     => __('Parent Service Area:', 'ssseo'),
-        'all_items'             => __('All Service Areas', 'ssseo'),
-        'add_new_item'          => __('Add New Service Area', 'ssseo'),
-        'add_new'               => __('Add New', 'ssseo'),
-        'new_item'              => __('New Service Area', 'ssseo'),
-        'edit_item'             => __('Edit Service Area', 'ssseo'),
-        'update_item'           => __('Update Service Area', 'ssseo'),
-        'view_item'             => __('View Service Area', 'ssseo'),
-        'view_items'            => __('View Service Areas', 'ssseo'),
-        'search_items'          => __('Search Service Area', 'ssseo'),
-        'not_found'             => __('Not found', 'ssseo'),
-        'not_found_in_trash'    => __('Not found in Trash', 'ssseo'),
-        'featured_image'        => __('Featured Image', 'ssseo'),
-        'set_featured_image'    => __('Set featured image', 'ssseo'),
-        'remove_featured_image' => __('Remove featured image', 'ssseo'),
-        'use_featured_image'    => __('Use as featured image', 'ssseo'),
-        'insert_into_item'      => __('Insert into Service Area', 'ssseo'),
-        'uploaded_to_this_item' => __('Uploaded to this Service Area', 'ssseo'),
-        'items_list'            => __('Service Areas list', 'ssseo'),
-        'items_list_navigation' => __('Service Areas list navigation', 'ssseo'),
-        'filter_items_list'     => __('Filter Service Areas list', 'ssseo'),
-    );
-
-    // Arguments for the Service Areas custom post type
-    $service_area_args = array(
-        'label'                 => __('Service Area', 'ssseo'),
-        'description'           => __('Service Area Description', 'ssseo'),
-        'labels'                => $service_area_labels,
-        'supports'              => array('title', 'editor', 'thumbnail', 'excerpt', 'custom-fields', 'page-attributes', 'tags'),
-        'public'                => true,
-        'show_ui'               => true,
-        'show_in_menu'          => true,
-        'menu_position'         => 22, // You might want to change this to avoid menu position conflict
-        'show_in_admin_bar'     => true,
-        'show_in_nav_menus'     => true,
-        'can_export'            => true,
-        'has_archive'           => true,
-        'hierarchical'          => true,
-        'exclude_from_search'   => false,
-        'publicly_queryable'    => true,
-        'rewrite'               => array('slug' => 'service-area', 'with_front' => false),
-        'capability_type'       => 'page',
-    );
-
-// Register the Service Areas custom post type
-register_post_type('service_area', $service_area_args);
-    }
-
-    /**
-     * 3. Product CPT
-     */
-    if ( get_option( 'ssseo_enable_product_cpt', '0' ) === '1' ) {
-        $product_labels = [
-            'name'                  => _x( 'Products', 'Post Type General Name', 'ssseo' ),
-            'singular_name'         => _x( 'Product', 'Post Type Singular Name', 'ssseo' ),
-            'menu_name'             => __( 'Products', 'ssseo' ),
-            'name_admin_bar'        => __( 'Product', 'ssseo' ),
-            'archives'              => __( 'Product Archives', 'ssseo' ),
-            'attributes'            => __( 'Product Attributes', 'ssseo' ),
-            'parent_item_colon'     => __( 'Parent Product:', 'ssseo' ),
-            'all_items'             => __( 'All Products', 'ssseo' ),
-            'add_new_item'          => __( 'Add New Product', 'ssseo' ),
-            'add_new'               => __( 'Add New', 'ssseo' ),
-            'new_item'              => __( 'New Product', 'ssseo' ),
-            'edit_item'             => __( 'Edit Product', 'ssseo' ),
-            'update_item'           => __( 'Update Product', 'ssseo' ),
-            'view_item'             => __( 'View Product', 'ssseo' ),
-            'view_items'            => __( 'View Products', 'ssseo' ),
-            'search_items'          => __( 'Search Product', 'ssseo' ),
-            'not_found'             => __( 'Not found', 'ssseo' ),
-            'not_found_in_trash'    => __( 'Not found in Trash', 'ssseo' ),
-            'featured_image'        => __( 'Featured Image', 'ssseo' ),
-            'set_featured_image'    => __( 'Set featured image', 'ssseo' ),
-            'remove_featured_image' => __( 'Remove featured image', 'ssseo' ),
-            'use_featured_image'    => __( 'Use as featured image', 'ssseo' ),
-            'insert_into_item'      => __( 'Insert into Product', 'ssseo' ),
-            'uploaded_to_this_item' => __( 'Uploaded to this Product', 'ssseo' ),
-            'items_list'            => __( 'Products list', 'ssseo' ),
-            'items_list_navigation' => __( 'Products list navigation', 'ssseo' ),
-            'filter_items_list'     => __( 'Filter Products list', 'ssseo' ),
-        ];
-
-        $product_args = [
-            'label'               => __( 'Product', 'ssseo' ),
-            'description'         => __( 'Product Description', 'ssseo' ),
-            'labels'              => $product_labels,
-            'supports'            => [ 'title', 'editor', 'thumbnail', 'excerpt', 'custom-fields', 'page-attributes' ],
-            'public'              => true,
-            'show_ui'             => true,
-            'show_in_menu'        => true,
-            'menu_position'       => 23,
-            'show_in_admin_bar'   => true,
-            'show_in_nav_menus'   => true,
-            'can_export'          => true,
-            'has_archive'         => true,
-            'hierarchical'        => true,
-            'exclude_from_search' => false,
-            'publicly_queryable'  => true,
-            'show_in_rest'        => true,
-            'rewrite'             => [ 'slug' => 'products', 'with_front' => false ],
-            'capability_type'     => 'page',
-        ];
-
-        register_post_type( 'product', $product_args );
+        register_post_type( $post_type, $args );
     }
 }
-
-// Hook into 'init' so that CPTs register after options load
 add_action( 'init', 'ssseo_register_custom_post_types', 0 );

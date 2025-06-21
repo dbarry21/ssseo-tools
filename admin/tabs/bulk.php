@@ -1,100 +1,70 @@
 <?php
 // File: admin/tabs/bulk.php
-if ( ! defined( 'ABSPATH' ) ) exit;
+if (!defined('ABSPATH')) exit;
 
-$post_types = get_post_types( [], 'objects' );
-
+$post_types = get_post_types([], 'objects');
 $posts_by_type = [];
-foreach ( $post_types as $pt ) {
-  $all_posts = get_posts( [
+foreach ($post_types as $pt) {
+  $all_posts = get_posts([
     'post_type'      => $pt->name,
     'posts_per_page' => -1,
     'post_status'    => 'publish',
     'orderby'        => 'title',
     'order'          => 'ASC',
-  ] );
-  $arr = [];
-  foreach ( $all_posts as $p ) {
-    $arr[] = [
+  ]);
+  foreach ($all_posts as $p) {
+    $posts_by_type[$pt->name][] = [
       'id'    => $p->ID,
       'title' => $p->post_title,
     ];
   }
-  $posts_by_type[ $pt->name ] = $arr;
 }
-
-$default_pt = array_key_first( $posts_by_type );
+$default_pt = array_key_first($posts_by_type);
 ?>
 
-<h2><?php esc_html_e( 'Bulk Operations – Yoast', 'ssseo' ); ?></h2>
-<p>
-  <?php esc_html_e( 'Use the controls below to apply bulk SEO functions to selected posts.', 'ssseo' ); ?>
-</p>
+<div class="container mt-4">
+  <h2>Bulk Operations &mdash; Yoast</h2>
+  <p class="text-muted">Use the controls below to apply bulk SEO functions to selected posts.</p>
 
-<table class="form-table">
-  <tr>
-    <th><label for="ssseo_bulk_pt_filter">Post Type</label></th>
-    <td>
-      <select id="ssseo_bulk_pt_filter" style="width:100%; max-width:300px;">
-        <?php foreach ( $post_types as $pt ) : ?>
-          <option
-            value="<?php echo esc_attr( $pt->name ); ?>"
-            <?php selected( $pt->name, $default_pt ); ?>
-          >
-            <?php echo esc_html( $pt->labels->singular_name ); ?>
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <label for="ssseo_bulk_pt_filter" class="form-label">Post Type</label>
+      <select id="ssseo_bulk_pt_filter" class="form-select">
+        <?php foreach ($post_types as $pt) : ?>
+          <option value="<?php echo esc_attr($pt->name); ?>" <?php selected($pt->name, $default_pt); ?>>
+            <?php echo esc_html($pt->labels->singular_name); ?>
           </option>
         <?php endforeach; ?>
       </select>
-    </td>
-  </tr>
+    </div>
 
-  <tr>
-    <th><label for="ssseo_bulk_post_search">Search Posts</label></th>
-    <td>
-      <input
-        type="text"
-        id="ssseo_bulk_post_search"
-        placeholder="Type to filter…"
-        style="width:100%; max-width:400px; margin-bottom:8px;"
-      >
-    </td>
-  </tr>
+    <div class="col-md-4">
+      <label for="ssseo_bulk_post_search" class="form-label">Search Posts</label>
+      <input type="text" id="ssseo_bulk_post_search" class="form-control" placeholder="Type to filter…">
+    </div>
 
-  <tr>
-    <th><label for="ssseo_bulk_post_id">Choose Post(s)</label></th>
-    <td>
-      <select
-        id="ssseo_bulk_post_id"
-        name="ssseo_bulk_post_id[]"
-        multiple
-        size="8"
-        style="width:100%; max-width:400px;"
-      >
-        <!-- JS will inject options -->
+    <div class="col-md-4">
+      <label for="ssseo_bulk_post_id" class="form-label">Choose Post(s)</label>
+      <select id="ssseo_bulk_post_id" name="ssseo_bulk_post_id[]" multiple size="8" class="form-select">
+        <!-- Injected by JS -->
       </select>
-      <p class="description">Hold Ctrl (Windows) or Cmd (Mac) to select multiple.</p>
-    </td>
-  </tr>
-</table>
+      <div class="form-text">Hold Ctrl (Windows) or Cmd (Mac) to select multiple.</div>
+    </div>
+  </div>
 
-<h3>Yoast Meta Robots Functions</h3>
-<div class="ssseo-bulk-functions" style="margin-bottom:20px;">
-  <button id="ssseo_bulk_indexfollow" class="button button-primary">
-    Set to Index, Follow (Selected)
-  </button>
-  <button id="ssseo_bulk_reset_canonical" class="button button-secondary">
-    Reset Canonical to Page URL (Selected)
-  </button>
-  <button id="ssseo_bulk_clear_canonical" class="button">
-    Clear Canonical (Selected)
-  </button>
+  <h4>Yoast Meta Robots Functions</h4>
+  <div class="mb-4">
+    <button id="ssseo_bulk_indexfollow" class="btn btn-primary me-2">Set to Index, Follow (Selected)</button>
+    <button id="ssseo_bulk_reset_canonical" class="btn btn-secondary me-2">Reset Canonical to Page URL (Selected)</button>
+    <button id="ssseo_bulk_clear_canonical" class="btn btn-outline-secondary">Clear Canonical (Selected)</button>
+  </div>
+
+  <div id="ssseo_bulk_result" class="border p-3 bg-light" style="display:none; max-width:700px;"></div>
 </div>
 
-<div id="ssseo_bulk_result" style="display:none; background:#f9f9f9; padding:12px; border:1px solid #ccc; max-width:500px;"></div>
-
 <script>
-var ssseoPostsByType = <?php echo wp_json_encode( $posts_by_type ); ?>;
-var ssseoDefaultType = "<?php echo esc_js( $default_pt ); ?>";
+var ssseoPostsByType = <?php echo wp_json_encode($posts_by_type); ?>;
+var ssseoDefaultType = "<?php echo esc_js($default_pt); ?>";
 
 jQuery(document).ready(function($) {
   const $select = $('#ssseo_bulk_post_id');
@@ -128,7 +98,7 @@ jQuery(document).ready(function($) {
       _wpnonce: ssseo_admin.nonce
     }, function(response) {
       if (response.success) {
-        let html = `<strong>${selected.length} ${successMessage}:</strong><ul style='margin:8px 0;'>`;
+        let html = `<strong>${selected.length} ${successMessage}:</strong><ul class='mt-2 ps-3'>`;
         selected.forEach(id => {
           const label = $select.find(`option[value='${id}']`).text();
           html += `<li>${label}</li>`;
@@ -163,7 +133,6 @@ jQuery(document).ready(function($) {
     handleBulkAction('ssseo_yoast_clear_canonical', 'canonical URL(s) cleared');
   });
 
-  // Initial render
   updateSelectOptions(ssseoDefaultType);
 });
 </script>

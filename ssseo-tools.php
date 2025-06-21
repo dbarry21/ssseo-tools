@@ -2,7 +2,7 @@
 /*
 Plugin Name: SSSEO Tools
 Description: Modular plugin for SEO and content enhancements.
-Version: 1.0.3
+Version: 1.1.0
 Author: Dave Barry
 Text Domain: ssseo
 */
@@ -214,3 +214,30 @@ function ssseo_enqueue_video_styles() {
         file_exists( $css_path ) ? filemtime( $css_path ) : false
     );
 }
+
+add_action('admin_enqueue_scripts', 'ssseo_enqueue_admin_bootstrap');
+function ssseo_enqueue_admin_bootstrap($hook) {
+    // Optional: limit to your plugin settings page only
+    if (!isset($_GET['page']) || $_GET['page'] !== 'ssseo-tools') {
+        return;
+    }
+
+    // Bootstrap 5.3+ via CDN
+    wp_enqueue_style(
+        'ssseo-bootstrap',
+        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
+        [],
+        '5.3.3'
+    );
+
+    wp_enqueue_script(
+        'ssseo-bootstrap',
+        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js',
+        [],
+        '5.3.3',
+        true
+    );
+}
+
+add_action('wp_ajax_ssseo_test_openai_key', 'ssseo_test_openai_key');
+add_action('wp_ajax_ssseo_test_maps_key', 'ssseo_test_maps_key');
