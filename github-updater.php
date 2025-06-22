@@ -6,47 +6,61 @@
 
 if (!defined('ABSPATH')) exit;
 
-// Configuration
-$ssseo_plugin_file = 'ssseo-tools/ssseo-tools.php'; // Plugin path relative to plugins dir
-$ssseo_repo_user   = 'dbarry21';
-$ssseo_repo_name   = 'ssseo-tools';
-
-// Hook into WordPress update system
-add_filter('pre_set_site_transient_update_plugins', function ($transient) use ($ssseo_plugin_file, $ssseo_repo_user, $ssseo_repo_name) {
+add_filter('pre_set_site_transient_update_plugins', function ($transient) {
     if (empty($transient->checked)) return $transient;
 
-    // Current installed version
-    $plugin_data     = get_plugin_data(WP_PLUGIN_DIR . '/' . $ssseo_plugin_file);
+    $plugin_slug = 'ssseo-tools';
+    $plugin_file = 'ssseo-tools/ssseo-tools.php';
+    $repo_user   = 'dbarry21';
+    $repo_name   = 'ssseo-tools';
+
+    // Get current plugin version
+    $plugin_data = get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_file);
     $current_version = $plugin_data['Version'];
 
-    // Get latest release from GitHub API
-    $api_url = "https://api.github.com/repos/{$ssseo_repo_user}/{$ssseo_repo_name}/releases/latest";
-
-    // Set User-Agent or GitHub will reject the request
-    $response = wp_remote_get($api_url, [
-        'headers' => ['User-Agent' => 'WordPress Plugin Updater'],
-        'timeout' => 15
+    // Call GitHub API for latest release
+    $response = wp_remote_get("https://api.github.com/repos/{$repo_user}/{$repo_name}/releases/latest", [
+        'headers' => ['Accept' => 'application/vnd.github+json', 'User-Agent' => 'WordPress Plugin Updater']
     ]);
 
     if (is_wp_error($response)) return $transient;
 
-    $release_data = json_decode(wp_remote_retrieve_body($response));
+    $release = json_decode(wp_remote_retrieve_body($response), true);
 
-    if (!isset($release_data->tag_name)) return $transient;
+    if (empty($release['tag_name']) || empty($release['assets'][0]['browser_download_url'])) {
+        return $transient;
+    }
 
-    // Remove leading "v" if present
-    $latest_version = ltrim($release_data->tag_name, 'v');
+    $remote_version = ltrim($release['tag_name'], 'v');
+    $download_url   = $release['assets'][0]['browser_download_url']; // Your uploaded zip
 
     // Compare versions
-    if (version_compare($current_version, $latest_version, '<')) {
-        $transient->response[$ssseo_plugin_file] = (object)[
-            'slug'        => $ssseo_repo_name,
-            'plugin'      => $ssseo_plugin_file,
-            'new_version' => $latest_version,
-            'url'         => $release_data->html_url ?? "https://github.com/{$ssseo_repo_user}/{$ssseo_repo_name}",
-            'package'     => $release_data->zipball_url, // GitHub zip URL
+    if (version_compare($current_version, $remote_version, '<')) {
+        $transient->response[$plugin_file] = (object) [
+            'slug'        => $plugin_slug,
+            'plugin'      => $plugin_file,
+            'new_version' => $remote_version,
+            'url'         => "https://github.com/{$repo_user}/{$repo_name}",
+            'package'     => $download_url,
         ];
     }
 
     return $transient;
 });
+
+add_filter('plugins_api', function ($result, $action, $args) {
+    if ($action !== 'plugin_information' || $args->slug !== 'ssseo-tools') {
+        return false;
+    }
+
+    return (object) [
+        'name'        => 'SSSEO Tools',
+        'slug'        => 'ssseo-tools',
+        'version'     => '1.1.0',
+        'author'      => '<a href="https://stevescottseo.com">Steve Scott SEO</a>',
+        'homepage'    => 'https://github.com/dbarry21/ssseo-tools',
+        'sections'    => [
+            'description' => '<p>SEO plugin tools for structured data, Yoast controls, AI, and more.</p>',
+        ],
+    ];
+}, 10, 3);
