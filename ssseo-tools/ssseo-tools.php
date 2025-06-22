@@ -11,6 +11,11 @@ defined( 'ABSPATH' ) || exit;
 
 require_once __DIR__ . '/github-updater.php';
 
+// In ssseo-tools.php, where you include the video code:
+if ( '1' === get_option( 'ssseo_enable_youtube', '1' ) ) {
+    require_once plugin_dir_path( __FILE__ ) . 'inc/ssseo-video.php';
+}
+
 // -------------------------
 // Load Admin Bar Menu
 // -------------------------
@@ -214,6 +219,15 @@ function ssseo_enqueue_video_styles() {
         file_exists( $css_path ) ? filemtime( $css_path ) : false
     );
 }
+
+// 1a) Register the option in WP
+add_action( 'admin_init', function() {
+    register_setting( 'ssseo_videoblog', 'ssseo_enable_youtube', [
+        'type'              => 'boolean',
+        'sanitize_callback' => 'rest_sanitize_boolean',
+        'default'           => true,
+    ] );
+} );
 
 add_action('admin_enqueue_scripts', 'ssseo_enqueue_admin_bootstrap');
 function ssseo_enqueue_admin_bootstrap($hook) {
