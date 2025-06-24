@@ -368,23 +368,22 @@ function ssseo_ajax_youtube_pager() {
  * 4) ENQUEUE JS (and localize data)
  */
 add_action( 'wp_enqueue_scripts', function() {
-    // Enqueue the frontend AJAX script
+    $plugin_main_file = dirname(__DIR__) . '/ssseo-tools.php';
+
     wp_enqueue_script(
         'ssseo-youtube-ajax',
-        plugin_dir_url( __FILE__ ) . 'assets/js/ssseo-video.js',
+        plugins_url( 'assets/js/ssseo-video.js', $plugin_main_file ),
         array( 'jquery' ),
-        filemtime( filename: plugin_dir_url( __FILE__ ) . 'assets/js/ssseo-video.js'
- . '/assets/js/ssseo-video.js' ),
+        filemtime( plugin_dir_path( $plugin_main_file ) . 'assets/js/ssseo-video.js' ),
         true
     );
 
-    // Localize data for JS (channel, pagesize, default max)
     wp_localize_script( 'ssseo-youtube-ajax', 'ssseoYTAjax', array(
         'ajax_url' => admin_url( 'admin-ajax.php' ),
         'nonce'    => wp_create_nonce( 'ssseo_youtube_nonce' ),
-        'channel'  => get_theme_mod( 'ssseo_youtube_channel_id', '' ),
+        'channel'  => get_option( 'ssseo_youtube_channel_id', '' ),
         'pagesize' => 4,
-        'max'      => 0, // default: no limit
+        'max'      => 0,
     ) );
 } );
 
@@ -392,11 +391,13 @@ add_action( 'wp_enqueue_scripts', function() {
  * 5) ENQUEUE CUSTOMIZER JS for “Generate Video Posts” button
  */
 add_action( 'customize_controls_enqueue_scripts', function() {
+    $plugin_main_file = dirname(__DIR__) . '/ssseo-tools.php';
+
     wp_enqueue_script(
         'ssseo-generate-videos-script',
-        plugin_dir_url( __FILE__ ) . 'assets/js/ssseo-generate-videos.js',
+        plugins_url( 'assets/js/ssseo-generate-videos.js', $plugin_main_file ),
         array( 'jquery', 'customize-controls' ),
-        filemtime( plugin_dir_url( __FILE__ ) . 'assets/js/ssseo-generate-videos.js' ),
+        filemtime( plugin_dir_path( $plugin_main_file ) . 'assets/js/ssseo-generate-videos.js' ),
         true
     );
 
@@ -404,6 +405,7 @@ add_action( 'customize_controls_enqueue_scripts', function() {
         'ajax_url' => admin_url( 'admin-ajax.php' ),
     ) );
 } );
+
 
 /**
  * 6) Bulk‐generate Video CPT posts from a YouTube channel
