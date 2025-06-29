@@ -90,3 +90,19 @@ $default_pt = in_array('video', array_keys($posts_by_type), true) ? 'video' : ar
 var ssseoPostsByType = <?php echo wp_json_encode($posts_by_type); ?>;
 var ssseoDefaultType = "<?php echo esc_js($default_pt); ?>";
 </script>
+<hr class="my-5">
+
+<h4>llms.txt Preview</h4>
+<p class="text-muted">This is a live preview of the dynamically generated <code>llms.txt</code> file based on your current schema and settings.</p>
+<a href="<?php echo esc_url( home_url('/llms.txt') ); ?>" target="_blank" class="btn btn-outline-primary mt-3">
+    View Full llms.txt in New Tab
+</a>
+
+<?php
+if (function_exists('ssseo_output_llms_to_string')) {
+    echo '<pre style="background:#f9f9f9;border:1px solid #ccc;padding:15px;font-size:14px;max-height:500px;overflow:auto;">';
+    echo esc_html(ssseo_output_llms_to_string());
+    echo '</pre>';
+} else {
+    echo '<div class="alert alert-warning">llms.txt preview function not available.</div>';
+}

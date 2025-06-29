@@ -2,7 +2,7 @@
 /*
 Plugin Name: SSSEO Tools
 Description: Modular plugin for SEO and content enhancements.
-Version: 1.2.1
+Version: 1.2.5
 Author: Dave Barry
 Text Domain: ssseo
 */
@@ -200,6 +200,7 @@ require_once plugin_dir_path( __FILE__ ) . 'modules/filters.php';
 require_once plugin_dir_path( __FILE__ ) . 'modules/map-as-featured.php';
 require_once plugin_dir_path( __FILE__ ) . 'modules/ai-functions.php';  // AJAX handlers for AI tab
 require_once plugin_dir_path( __FILE__ ) . 'inc/yoast-log-hooks.php';
+require_once plugin_dir_path(__FILE__) . 'inc/llms-output.php';
 
 require_once plugin_dir_path(__FILE__) . 'admin/ajax.php';
 

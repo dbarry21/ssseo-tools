@@ -43,7 +43,7 @@ function ssseo_ai_generate_meta_callback() {
         'body' => wp_json_encode( [
             'model'       => 'gpt-4o',
             'messages'    => [
-                [ 'role' => 'system', 'content' => 'You are an expert SEO assistant and Copywriter.' ],
+                [ 'role' => 'system', 'content' => 'You are an expert SEO assistant and Copywriter that specializes in marketing.' ],
                 [ 'role' => 'user',   'content' => $prompt ],
             ],
             'max_tokens'  => 160,
@@ -117,7 +117,7 @@ function ssseo_ai_generate_title_callback() {
     $title   = get_the_title( $post_id );
     $content = get_post_field( 'post_content', $post_id );
 
-    $default_title_prompt = "Write a concise, SEO-friendly title (max 60 characters) for a %s. Use this existing title “%s” and content as context:\n\n%s";
+    $default_title_prompt = "Write a concise, SEO-friendly title (between 90 and 120 characters) for a %s. Use this existing title “%s” and content as context:\n\n%s";
     $title_prompt_template = get_option( 'ssseo_ai_title_prompt', $default_title_prompt );
 
     $prompt = sprintf( $title_prompt_template, $pt, $title, wp_strip_all_tags( $content ) );
@@ -135,7 +135,7 @@ function ssseo_ai_generate_title_callback() {
         'body' => wp_json_encode( [
             'model'       => 'gpt-4o',
             'messages'    => [
-                [ 'role' => 'system', 'content' => 'You are a helpful SEO assistant.' ],
+                [ 'role' => 'system', 'content' => 'You are an expert SEO assistant and Copywriter that specializes in marketing.' ],
                 [ 'role' => 'user',   'content' => $prompt ],
             ],
             'max_tokens'  => 160,

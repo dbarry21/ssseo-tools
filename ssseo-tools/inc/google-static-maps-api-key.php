@@ -6,7 +6,7 @@
  * when you click the "Generate Map" button in the editor.
  *
  * @package MapAsFeatured
- * @version 3.5
+ * @version 3.7
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -73,8 +73,11 @@ add_action( 'add_meta_boxes', function() {
         $zoom = map_as_featured_get_zoom( $post->ID );
         $map_url = map_as_featured_get_static_map_url( $default_location, $zoom, $post->ID );
         ?>
+        <p><label for="map_as_featured_search">Search for a location:</label><br>
+        <input type="text" id="map_as_featured_search" placeholder="Start typing a location..." style="width:100%; margin-bottom:8px;"></p>
+
         <p><label for="map_as_featured_location">Location (used for map):</label><br>
-        <input type="text" id="map_as_featured_location" value="<?php echo esc_attr( $default_location ); ?>" style="width:100%;"></p>
+        <input type="text" name="map_as_featured_location" id="map_as_featured_location" value="<?php echo esc_attr( $default_location ); ?>" style="width:100%;" readonly></p>
 
         <p><label for="map_as_featured_zoom">Zoom Level (1–20):</label><br>
         <input type="number" name="map_as_featured_zoom" id="map_as_featured_zoom" value="<?php echo esc_attr( $zoom ); ?>" min="1" max="20" style="width:100%;"></p>
@@ -119,6 +122,23 @@ add_action( 'add_meta_boxes', function() {
             zoomInput.addEventListener('input', updateMap);
             locationInput.addEventListener('input', updateMap);
 
+            // Load Google Places Autocomplete
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+            script.async = true;
+            script.onload = function () {
+                const searchInput = document.getElementById('map_as_featured_search');
+                const autocomplete = new google.maps.places.Autocomplete(searchInput);
+                autocomplete.addListener('place_changed', function () {
+                    const place = autocomplete.getPlace();
+                    if (place.geometry && place.formatted_address) {
+                        locationInput.value = place.formatted_address;
+                        updateMap();
+                    }
+                });
+            };
+            document.head.appendChild(script);
+
             generateBtn.addEventListener('click', function () {
                 generateBtn.disabled = true;
                 status.textContent = 'Generating...';
@@ -152,13 +172,15 @@ add_action( 'save_post_service_area', function( $post_id ) {
     if ( isset( $_POST['map_as_featured_zoom'] ) ) {
         update_post_meta( $post_id, '_map_as_featured_zoom', intval( $_POST['map_as_featured_zoom'] ) );
     }
+    if ( isset( $_POST['map_as_featured_location'] ) ) {
+        update_post_meta( $post_id, 'city_state', sanitize_text_field( $_POST['map_as_featured_location'] ) );
+    }
 });
-
 
 add_action( 'wp_ajax_map_as_featured_generate', function() {
     check_ajax_referer( 'map_as_featured_generate', 'nonce' );
     $post_id = intval( $_POST['post_id'] );
-    if ( get_post_type( $post_id ) !== 'service_area' ) wp_send_json_error( 'Invalid post type' );
+    if ( ! in_array( get_post_type( $post_id ), [ 'service_area', 'service' ], true ) ) wp_send_json_error( 'Invalid post type' );
 
     $location = map_as_featured_get_location( $post_id );
     $zoom     = map_as_featured_get_zoom( $post_id );
