@@ -2,7 +2,7 @@
 /*
 Plugin Name: SSSEO Tools
 Description: Modular plugin for SEO and content enhancements.
-Version: 1.2.5
+Version: 1.2.6
 Author: Dave Barry
 Text Domain: ssseo
 */
