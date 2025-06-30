@@ -60,6 +60,16 @@ if ( ! defined( 'ABSPATH' ) ) exit;
           <textarea id="ssseo_organization_areas_served" name="ssseo_organization_areas_served" class="form-control" rows="3"><?php echo esc_textarea( $org_fields['areas_served'] ); ?></textarea>
         </div>
 
+         <div class="mb-4">
+          <label for="ssseo_default_service_label" class="form-label fw-bold">Default Service Type</label>
+          <select id="ssseo_default_service_label" name="ssseo_default_service_label" class="form-select">
+            <?php foreach ( $default_service_types as $type ) : ?>
+              <option value="<?php echo esc_attr( $type ); ?>" <?php selected( $org_fields['default_service_label'], $type ); ?>><?php echo $type ?: '— Select Service Type —'; ?></option>
+            <?php endforeach; ?>
+          </select>
+          <small class="form-text text-muted">Used as a fallback in ServiceArea schema if no type is set.</small>
+        </div>
+
         <div class="mb-4">
           <label class="form-label fw-bold">Organization Logo</label>
           <div id="ssseo-logo-preview" class="mb-2">

@@ -5,35 +5,34 @@
  */
 
 function ssseo_register_custom_post_types() {
-
     $cpts = [
         'service' => [
-            'option_key' => 'ssseo_enable_service_cpt',
-            'default_slug' => 'service',
-            'default_archive' => 'services',
-            'menu_position' => 21,
-            'labels' => [
-                'name' => 'Services',
+            'option_key'       => 'ssseo_enable_service_cpt',
+            'default_slug'     => 'service',
+            'default_archive'  => 'services',
+            'menu_position'    => 21,
+            'labels'           => [
+                'name'     => 'Services',
                 'singular' => 'Service',
             ],
         ],
         'service_area' => [
-            'option_key' => 'ssseo_enable_service_area_cpt',
-            'default_slug' => 'service-area',
-            'default_archive' => 'service-areas',
-            'menu_position' => 22,
-            'labels' => [
-                'name' => 'Service Areas',
+            'option_key'       => 'ssseo_enable_service_area_cpt',
+            'default_slug'     => 'service-area',
+            'default_archive'  => 'service-areas',
+            'menu_position'    => 22,
+            'labels'           => [
+                'name'     => 'Service Areas',
                 'singular' => 'Service Area',
             ],
         ],
         'product' => [
-            'option_key' => 'ssseo_enable_product_cpt',
-            'default_slug' => 'product',
-            'default_archive' => 'products',
-            'menu_position' => 23,
-            'labels' => [
-                'name' => 'Products',
+            'option_key'       => 'ssseo_enable_product_cpt',
+            'default_slug'     => 'product',
+            'default_archive'  => 'products',
+            'menu_position'    => 23,
+            'labels'           => [
+                'name'     => 'Products',
                 'singular' => 'Product',
             ],
         ],
@@ -43,13 +42,15 @@ function ssseo_register_custom_post_types() {
         $enabled = get_option( $config['option_key'], '0' );
         if ( $enabled !== '1' ) continue;
 
-        $has_archive = get_option( $config['option_key'] . '_hasarchive', $config['default_archive'] );
-        $slug        = get_option( $config['option_key'] . '_slug', $config['default_slug'] );
+        // Get admin-defined slug and archive
+        $slug        = trim( get_option( $config['option_key'] . '_slug', '' ) );
+        $has_archive = trim( get_option( $config['option_key'] . '_hasarchive', '' ) );
 
-        // Fallbacks
-        $has_archive = $has_archive !== '' ? $has_archive : $config['default_archive'];
+        // Apply defaults if missing
         $slug        = $slug !== '' ? $slug : $config['default_slug'];
+        $has_archive = $has_archive !== '' ? $has_archive : false;
 
+        // Register labels
         $labels = [
             'name'                  => _x( $config['labels']['name'], 'Post Type General Name', 'ssseo' ),
             'singular_name'         => _x( $config['labels']['singular'], 'Post Type Singular Name', 'ssseo' ),
@@ -80,6 +81,7 @@ function ssseo_register_custom_post_types() {
             'filter_items_list'     => __( 'Filter ' . $config['labels']['name'] . ' list', 'ssseo' ),
         ];
 
+        // Register post type
         $args = [
             'label'               => __( $config['labels']['singular'], 'ssseo' ),
             'description'         => __( $config['labels']['singular'] . ' Description', 'ssseo' ),
@@ -92,7 +94,7 @@ function ssseo_register_custom_post_types() {
             'show_in_admin_bar'   => true,
             'show_in_nav_menus'   => true,
             'can_export'          => true,
-            'has_archive'         => $has_archive,
+            'has_archive'         => $has_archive, // ✅ now set to false if blank
             'hierarchical'        => true,
             'exclude_from_search' => false,
             'publicly_queryable'  => true,

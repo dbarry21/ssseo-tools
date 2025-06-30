@@ -7,6 +7,24 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+// Static list of example Service Types (schema.org compliant subset)
+$default_service_types = [
+    '',
+    'Plumber',
+    'Electrician',
+    'HVACBusiness',
+    'RoofingContractor',
+    'PestControl',
+    'LegalService',
+    'CleaningService',
+    'AutoRepair',
+    'MedicalBusiness',
+    'Locksmith',
+    'MovingCompany',
+    'RealEstateAgent',
+    'ITService',
+];
+
 // Save handler
 if (
     isset( $_POST['ssseo_org_schema_nonce'] ) &&
@@ -26,6 +44,7 @@ if (
     update_option( 'ssseo_organization_latitude', sanitize_text_field( $_POST['ssseo_organization_latitude'] ?? '' ) );
     update_option( 'ssseo_organization_longitude', sanitize_text_field( $_POST['ssseo_organization_longitude'] ?? '' ) );
     update_option( 'ssseo_organization_logo', absint( $_POST['ssseo_organization_logo'] ?? 0 ) );
+    update_option( 'ssseo_default_service_label', sanitize_text_field( $_POST['ssseo_default_service_label'] ?? '' ) );
 
     $raw_social = $_POST['ssseo_organization_social_profiles'] ?? [];
     update_option( 'ssseo_organization_social_profiles', is_array( $raw_social ) ? array_filter( array_map( 'esc_url_raw', $raw_social ) ) : [] );
@@ -49,7 +68,8 @@ $org_fields = [
     'email'       => get_option( 'ssseo_organization_email', '' ),
     'areas_served'=> get_option( 'ssseo_organization_areas_served', '' ),
     'latitude'    => get_option( 'ssseo_organization_latitude', '' ),
-    'longitude'   => get_option( 'ssseo_organization_longitude', '' )
+    'longitude'   => get_option( 'ssseo_organization_longitude', '' ),
+    'default_service_label' => get_option( 'ssseo_default_service_label', '' ),
 ];
 
 $logo_id   = get_option( 'ssseo_organization_logo', 0 );

@@ -6,22 +6,18 @@
  * Populates $schema_markup for that location.
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
+if ( ! defined( 'ABSPATH' ) ) exit;
 
-// Make sure we have location data with at least a name
+// Ensure valid location data
 $loc = $ssseo_current_localbusiness_location ?? [];
-if ( ! is_array( $loc ) || empty( $loc['name'] ) ) {
-    return;
-}
+if ( ! is_array( $loc ) || empty( $loc['name'] ) ) return;
 
-// Sanitize & pull values
+// Sanitize core values
 $name      = sanitize_text_field( $loc['name'] );
 $telephone = sanitize_text_field( $loc['phone'] ?? '' );
 $price     = sanitize_text_field( $loc['price'] ?? '' );
 
-// Address
+// Address details
 $street  = sanitize_text_field( $loc['street'] ?? '' );
 $city    = sanitize_text_field( $loc['city'] ?? '' );
 $region  = sanitize_text_field( $loc['state'] ?? '' );
@@ -32,7 +28,7 @@ $country = sanitize_text_field( $loc['country'] ?? '' );
 $latitude  = sanitize_text_field( $loc['lat'] ?? '' );
 $longitude = sanitize_text_field( $loc['lng'] ?? '' );
 
-// Begin building the schema array
+// Build the base schema
 $schema_markup = [
     '@context' => 'https://schema.org',
     '@type'    => 'LocalBusiness',
@@ -48,25 +44,32 @@ $schema_markup = [
     ],
 ];
 
-// Telephone
+// Add telephone and price if available
 if ( $telephone ) {
     $schema_markup['telephone'] = $telephone;
 }
-
-// priceRange
 if ( $price ) {
     $schema_markup['priceRange'] = $price;
 }
 
-// Featured image if available
-if ( has_post_thumbnail() ) {
-    $img_url = get_the_post_thumbnail_url( get_the_ID(), 'full' );
-    if ( $img_url ) {
-        $schema_markup['image'] = esc_url_raw( $img_url );
+// Use Organization Schema logo first, fallback to Site Logo
+$image_url = '';
+$org_logo_id = get_option( 'ssseo_org_logo' );
+
+if ( $org_logo_id ) {
+    $image_url = esc_url_raw( wp_get_attachment_url( $org_logo_id ) );
+} else {
+    $site_logo_id = get_theme_mod( 'custom_logo' );
+    if ( $site_logo_id ) {
+        $image_url = esc_url_raw( wp_get_attachment_url( $site_logo_id ) );
     }
 }
 
-// GeoCoordinates
+if ( $image_url ) {
+    $schema_markup['image'] = $image_url;
+}
+
+// Add geo data if both latitude and longitude are set
 if ( $latitude !== '' && $longitude !== '' ) {
     $schema_markup['geo'] = [
         '@type'     => 'GeoCoordinates',
@@ -75,15 +78,17 @@ if ( $latitude !== '' && $longitude !== '' ) {
     ];
 }
 
-// Opening Hours Specification
+// Add opening hours if available
 if ( isset( $loc['hours'] ) && is_array( $loc['hours'] ) ) {
-    $openingHours = [];
+    $opening_hours = [];
+
     foreach ( $loc['hours'] as $row ) {
         $day   = sanitize_text_field( $row['day']   ?? '' );
         $open  = sanitize_text_field( $row['open']  ?? '' );
         $close = sanitize_text_field( $row['close'] ?? '' );
+
         if ( $day && $open && $close ) {
-            $openingHours[] = [
+            $opening_hours[] = [
                 '@type'     => 'OpeningHoursSpecification',
                 'dayOfWeek' => $day,
                 'opens'     => $open,
@@ -91,9 +96,11 @@ if ( isset( $loc['hours'] ) && is_array( $loc['hours'] ) ) {
             ];
         }
     }
-    if ( ! empty( $openingHours ) ) {
-        $schema_markup['openingHoursSpecification'] = $openingHours;
+
+    if ( ! empty( $opening_hours ) ) {
+        $schema_markup['openingHoursSpecification'] = $opening_hours;
     }
 }
 
-// At this point, $schema_markup is complete. The caller (ssseo_maybe_output_localbusiness_schema) will JSON-encode and output it.
+// Final schema is now ready in $schema_markup
+// The caller (ssseo_maybe_output_localbusiness_schema) will JSON-encode and echo this.

@@ -2,7 +2,7 @@
 /*
 Plugin Name: SSSEO Tools
 Description: Modular plugin for SEO and content enhancements.
-Version: 1.2.6
+Version: 2.0
 Author: Dave Barry
 Text Domain: ssseo
 */
@@ -256,3 +256,56 @@ function ssseo_enqueue_admin_bootstrap($hook) {
 
 add_action('wp_ajax_ssseo_test_openai_key', 'ssseo_test_openai_key');
 add_action('wp_ajax_ssseo_test_maps_key', 'ssseo_test_maps_key');
+
+// Register metabox for Service Type
+add_action( 'add_meta_boxes', function() {
+    add_meta_box(
+        'ssseo_service_area_type',
+        'Service Type (Schema.org)',
+        'ssseo_render_service_area_type_meta_box',
+        'service_area',
+        'side',
+        'default'
+    );
+} );
+
+function ssseo_render_service_area_type_meta_box( $post ) {
+    $value = get_post_meta( $post->ID, '_ssseo_service_area_type', true );
+
+    // Schema.org recognized service types
+    $service_types = [
+        '' => '-- Select Service Type --',
+        'LegalService' => 'Legal Service',
+        'FinancialService' => 'Financial Service',
+        'FoodService' => 'Food Service',
+        'MedicalBusiness' => 'Medical Service',
+        'HomeAndConstructionBusiness' => 'Home/Construction Service',
+        'EmergencyService' => 'Emergency Service',
+        'AutomotiveBusiness' => 'Automotive Service',
+        'ChildCare' => 'Child Care',
+        'CleaningService' => 'Cleaning Service',
+        'Electrician' => 'Electrician',
+        'Plumber' => 'Plumber',
+        'HVACBusiness' => 'HVAC Service',
+        'RoofingContractor' => 'Roofing Contractor',
+        'MovingCompany' => 'Moving Company',
+        'PestControl' => 'Pest Control',
+    ];
+
+    echo '<select name="ssseo_service_area_type" class="widefat">';
+    foreach ( $service_types as $key => $label ) {
+        $selected = selected( $value, $key, false );
+        echo "<option value='" . esc_attr( $key ) . "' $selected>" . esc_html( $label ) . "</option>";
+    }
+    echo '</select>';
+}
+
+// Save the selected service type
+add_action( 'save_post_service_area', function( $post_id ) {
+    if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+    if ( ! current_user_can( 'edit_post', $post_id ) ) return;
+
+    if ( isset( $_POST['ssseo_service_area_type'] ) ) {
+        update_post_meta( $post_id, '_ssseo_service_area_type', sanitize_text_field( $_POST['ssseo_service_area_type'] ) );
+    }
+} );

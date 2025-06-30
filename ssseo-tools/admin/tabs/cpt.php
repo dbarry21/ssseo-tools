@@ -1,7 +1,6 @@
 <?php
 /**
- * Admin UI: Enable CPT Tab (Service, Service Area, Product) – Bootstrap Version
- * Version: 1.2
+ * Admin UI: Enable CPT Tab (Service, Service Area, Product) – Bootstrap Toggle Version
  */
 
 if (!defined('ABSPATH')) exit;
@@ -30,6 +29,8 @@ if (
         update_option("{$field}_slug", $slug);
     }
 
+    flush_rewrite_rules(); // ✅ Ensure updated slugs/archives are registered
+
     do_action('ssseo_cpt_settings_updated');
     echo '<div class="alert alert-success mt-3">Settings saved successfully.</div>';
 }
@@ -44,9 +45,10 @@ $fields = [
 ];
 
 $settings = [];
+
 foreach ($fields as $key => $field) {
     $settings[$key] = [
-        'enabled'     => get_option($field, '1'),
+        'enabled'     => get_option($field, '0'), // default unchecked
         'has_archive' => get_option("{$field}_hasarchive", ''),
         'slug'        => get_option("{$field}_slug", ''),
     ];
@@ -57,42 +59,65 @@ foreach ($fields as $key => $field) {
     <?php wp_nonce_field('ssseo_cpt_schema_save', 'ssseo_cpt_schema_nonce'); ?>
 
     <div class="row">
-        <?php foreach ($fields as $key => $field_id): 
+        <?php foreach ($fields as $key => $field_id):
             $label = ucwords(str_replace('_', ' ', $key));
             $s = $settings[$key];
         ?>
-            <div class="col-md-4">
-                <div class="card mb-4 shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <strong><?php echo esc_html($label); ?> CPT</strong>
-                    </div>
-                    <div class="card-body">
-                        <div class="form-check mb-3">
-                            <input class="form-check-input" type="checkbox" id="<?php echo $field_id; ?>" name="<?php echo $field_id; ?>" value="1" <?php checked('1', $s['enabled']); ?>>
-                            <label class="form-check-label" for="<?php echo $field_id; ?>">
-                                Enable "<?php echo esc_html($label); ?>" CPT
-                            </label>
-                        </div>
+        <div class="col-md-4">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <strong><?php echo esc_html($label); ?> CPT</strong>
+                </div>
+                <div class="card-body">
 
-                        <div class="mb-3">
-                            <label for="<?php echo $field_id; ?>_hasarchive" class="form-label">Has Archive</label>
-                            <input type="text" class="form-control" id="<?php echo $field_id; ?>_hasarchive" name="<?php echo $field_id; ?>_hasarchive" value="<?php echo esc_attr($s['has_archive']); ?>" placeholder="e.g. services">
-                            <div class="form-text">Enter the archive slug if needed. Leave blank to disable.</div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="<?php echo $field_id; ?>_slug" class="form-label">Slug</label>
-                            <input type="text" class="form-control" id="<?php echo $field_id; ?>_slug" name="<?php echo $field_id; ?>_slug" value="<?php echo esc_attr($s['slug']); ?>" placeholder="e.g. service">
-                            <div class="form-text">Enter the URL slug (no slashes).</div>
-                        </div>
+                    <div class="form-check form-switch mb-3">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            role="switch"
+                            id="<?php echo $field_id; ?>"
+                            name="<?php echo $field_id; ?>"
+                            value="1"
+                            <?php checked('1', $s['enabled']); ?>
+                        >
+                        <label class="form-check-label" for="<?php echo $field_id; ?>">
+                            Enable "<?php echo esc_html($label); ?>" CPT
+                        </label>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="<?php echo $field_id; ?>_hasarchive" class="form-label">Has Archive</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="<?php echo $field_id; ?>_hasarchive"
+                            name="<?php echo $field_id; ?>_hasarchive"
+                            value="<?php echo esc_attr($s['has_archive']); ?>"
+                            placeholder="e.g. services"
+                        >
+                        <div class="form-text">Leave blank to disable archive support.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="<?php echo $field_id; ?>_slug" class="form-label">Slug</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="<?php echo $field_id; ?>_slug"
+                            name="<?php echo $field_id; ?>_slug"
+                            value="<?php echo esc_attr($s['slug']); ?>"
+                            placeholder="e.g. service"
+                        >
+                        <div class="form-text">Enter the CPT URL slug (no slashes).</div>
+                    </div>
+
                 </div>
             </div>
+        </div>
         <?php endforeach; ?>
     </div>
 
     <p>
-  <input type="submit" class="btn btn-primary" value="Save Settings">
-</p>
-
+        <input type="submit" class="btn btn-primary" value="Save Settings">
+    </p>
 </form>

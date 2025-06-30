@@ -160,7 +160,7 @@ function ssseo_output_post_type_meta_any() {
     }
 }
 /**
- * FAQ SCHEMA (auto-includes if faq_items exists or is selected in page_schemas)
+ * FAQ SCHEMA
  */
 add_action( 'wp_head', 'ssseo_maybe_output_faq_schema' );
 function ssseo_maybe_output_faq_schema() {
@@ -168,8 +168,10 @@ function ssseo_maybe_output_faq_schema() {
         return;
     }
 
-    $post_id     = get_queried_object_id();
-    $post_type   = get_post_type( $post_id );
+    global $post;
+
+    $post_id     = $post->ID;
+    $post_type   = get_post_type( $post );
     $valid_types = [ 'post', 'page', 'service_area' ];
 
     if ( ! in_array( $post_type, $valid_types, true ) ) {
@@ -177,50 +179,72 @@ function ssseo_maybe_output_faq_schema() {
     }
 
     $selected_schemas = get_field( 'page_schemas', $post_id );
-    $should_output    = is_array( $selected_schemas ) && in_array( 'faq', $selected_schemas, true );
+    $has_faq_selected = is_array( $selected_schemas ) && in_array( 'faq', $selected_schemas, true );
+    $has_faq_items    = have_rows( 'faq_items', $post_id );
 
-    // Also allow auto-output if faq_items exist
-    if ( ! $should_output && have_rows( 'faq_items', $post_id ) ) {
-        $should_output = true;
-    }
-
-    if ( ! $should_output ) {
+    if ( ! $has_faq_selected && ! $has_faq_items ) {
         return;
     }
 
-    $mainEntity = [];
+    $schema_markup = [];
+    $builder = plugin_dir_path( __FILE__ ) . 'modules/schema/build-faq-schema.php';
 
-    if ( have_rows( 'faq_items', $post_id ) ) {
-        while ( have_rows( 'faq_items', $post_id ) ) {
-            the_row();
-            $question = trim( sanitize_text_field( get_sub_field( 'question' ) ) );
-            $answer   = trim( wp_kses_post( get_sub_field( 'answer' ) ) );
-
-            if ( $question && $answer ) {
-                $mainEntity[] = [
-                    '@type'          => 'Question',
-                    'name'           => $question,
-                    'acceptedAnswer' => [
-                        '@type' => 'Answer',
-                        'text'  => $answer,
-                    ],
-                ];
-            }
-        }
+    if ( file_exists( $builder ) ) {
+        include $builder;
     }
 
-    if ( empty( $mainEntity ) ) {
+    if ( ! empty( $schema_markup ) ) {
+        echo "\n<!-- SSSEO FAQ Schema -->\n";
+        echo '<script type="application/ld+json">'
+            . wp_json_encode( $schema_markup, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE )
+            . '</script>' . "\n";
+    }
+}
+
+/**
+ * SERVICE SCHEMA
+ */
+add_action( 'wp_head', 'ssseo_maybe_output_service_schema' );
+function ssseo_maybe_output_service_schema() {
+    if ( is_admin() || wp_doing_ajax() || ! is_singular( 'service' ) ) {
         return;
     }
 
-    $faq_schema = [
-        '@context'   => 'https://schema.org',
-        '@type'      => 'FAQPage',
-        'mainEntity' => $mainEntity,
-    ];
+    $schema_markup = [];
+    $builder_file = plugin_dir_path( __FILE__ ) . 'modules/schema/build-service-schema.php';
 
-    echo "\n<!-- SSSEO FAQ Schema -->\n";
-    echo '<script type="application/ld+json">'
-        . wp_json_encode( $faq_schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE )
-        . '</script>' . "\n";
+    if ( file_exists( $builder_file ) ) {
+        include $builder_file;
+    }
+
+    if ( ! empty( $schema_markup ) ) {
+        echo "\n<!-- SSSEO Service Schema -->\n";
+        echo '<script type="application/ld+json">'
+            . wp_json_encode( $schema_markup, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE )
+            . '</script>' . "\n";
+    }
+}
+
+/**
+ * SERVICE AREA SCHEMA
+ */
+add_action( 'wp_head', 'ssseo_maybe_output_servicearea_schema' );
+function ssseo_maybe_output_servicearea_schema() {
+    if ( is_admin() || wp_doing_ajax() || get_post_type() !== 'service_area' ) {
+        return;
+    }
+
+    $schema_markup = [];
+    $builder = plugin_dir_path( __FILE__ ) . 'modules/schema/build-servicearea-schema.php';
+
+    if ( file_exists( $builder ) ) {
+        include $builder;
+    }
+
+    if ( ! empty( $schema_markup ) ) {
+        echo "\n<!-- SSSEO ServiceArea Schema -->\n";
+        echo '<script type="application/ld+json">'
+            . wp_json_encode( $schema_markup, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE )
+            . '</script>' . "\n";
+    }
 }
