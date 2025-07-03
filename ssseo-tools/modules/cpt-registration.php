@@ -107,3 +107,40 @@ function ssseo_register_custom_post_types() {
     }
 }
 add_action( 'init', 'ssseo_register_custom_post_types', 0 );
+
+add_action('add_meta_boxes', 'ssseo_add_about_the_area_metabox');
+function ssseo_add_about_the_area_metabox() {
+    add_meta_box(
+        'ssseo_about_the_area',
+        'About the Area',
+        'ssseo_render_about_the_area_metabox',
+        'service_area',
+        'normal',
+        'high'
+    );
+}
+
+function ssseo_render_about_the_area_metabox($post) {
+    $content = get_post_meta($post->ID, '_about_the_area', true);
+    wp_nonce_field('ssseo_save_about_the_area', 'ssseo_about_the_area_nonce');
+    wp_editor($content, 'about_the_area_editor', [
+        'textarea_name' => 'about_the_area',
+        'media_buttons' => true,
+        'textarea_rows' => 8,
+    ]);
+}
+
+add_action('save_post', 'ssseo_save_about_the_area_metabox');
+function ssseo_save_about_the_area_metabox($post_id) {
+    if (!isset($_POST['ssseo_about_the_area_nonce']) || !wp_verify_nonce($_POST['ssseo_about_the_area_nonce'], 'ssseo_save_about_the_area')) {
+        return;
+    }
+
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (!current_user_can('edit_post', $post_id)) return;
+
+    if (isset($_POST['about_the_area'])) {
+        update_post_meta($post_id, '_about_the_area', wp_kses_post($_POST['about_the_area']));
+    }
+}
+

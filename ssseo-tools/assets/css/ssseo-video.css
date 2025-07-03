@@ -1,44 +1,44 @@
-.ssseo-card-grid {
-  display: grid;
-  grid-template-columns: 1fr; /*repeat(3, 1fr);*/
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.right-sidebar .ssseo-card-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem; /* optional, keeps consistent spacing */
-}
-
-@media (max-width: 1024px) {
-  .video-blog .ssseo-card-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem; /* optional, keeps consistent spacing */
-}
-}
-@media (max-width: 915px) {
-  .video-blog .ssseo-card-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem; /* optional, keeps consistent spacing */
-}
-}
-
-
-
-/* 
- Ensure the video embed never exceeds the width of its parent content container.
- Adjust max-width as needed (e.g. 800px or your theme’s content width). 
-*/
-.ssseo-video-embed-wrapper {
-  width: 100%;
-  max-width: 800px;      /* ← adjust this to your theme’s typical content width */
-  margin-left: auto;
-  margin-right: auto;
-  margin-bottom: 2rem;   /* same bottom‐spacing you had inline */
-}
-.ssseo-video-embed-wrapper .ratio {
-  width: 100%;           /* make sure the ratio box is always 100% of its wrapper */
-}
+.ssseo-card-grid {
+  display: grid;
+  grid-template-columns: 1fr; /*repeat(3, 1fr);*/
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.right-sidebar .ssseo-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem; /* optional, keeps consistent spacing */
+}
+
+@media (max-width: 1024px) {
+  .video-blog .ssseo-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem; /* optional, keeps consistent spacing */
+}
+}
+@media (max-width: 915px) {
+  .video-blog .ssseo-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem; /* optional, keeps consistent spacing */
+}
+}
+
+
+
+/* 
+ Ensure the video embed never exceeds the width of its parent content container.
+ Adjust max-width as needed (e.g. 800px or your theme’s content width). 
+*/
+.ssseo-video-embed-wrapper {
+  width: 100%;
+  max-width: 800px;      /* ← adjust this to your theme’s typical content width */
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 2rem;   /* same bottom‐spacing you had inline */
+}
+.ssseo-video-embed-wrapper .ratio {
+  width: 100%;           /* make sure the ratio box is always 100% of its wrapper */
+}

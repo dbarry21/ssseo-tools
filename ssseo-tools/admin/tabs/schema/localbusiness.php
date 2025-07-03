@@ -111,8 +111,8 @@ $pages = get_posts([ 'post_type' => ['page','service_area'], 'post_status' => 'p
             <label class="form-label">Opening Hours</label>
             <div class="row g-2 align-items-center">
               <?php
-              $loc['hours'] = $loc['hours'] ?? [[]];
-              foreach ( $loc['hours'] as $j => $hour ):
+              $loc['hours'] = isset($loc['hours']) && is_array($loc['hours']) && count($loc['hours']) > 0 ? $loc['hours'] : [['day' => '', 'open' => '', 'close' => '']];
+				foreach ( $loc['hours'] as $j => $hour ):
               ?>
               <div class="col-md-4">
                 <select class="form-select" name="<?php echo $prefix; ?>[hours][<?php echo $j; ?>][day]">
@@ -129,6 +129,12 @@ $pages = get_posts([ 'post_type' => ['page','service_area'], 'post_status' => 'p
                 <input type="time" class="form-control" name="<?php echo $prefix; ?>[hours][<?php echo $j; ?>][close]" value="<?php echo esc_attr($hour['close'] ?? ''); ?>">
               </div>
               <?php endforeach; ?>
+				<div class="col-12 mt-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary add-hours" data-index="<?php echo $i; ?>">
+    + Add Hours Row
+  </button>
+</div>
+
             </div>
           </div>
           </div>
@@ -172,6 +178,32 @@ document.addEventListener('DOMContentLoaded', function () {
     form.appendChild(input);
     form.submit();
   });
+
+  document.querySelectorAll('.add-hours').forEach(function(button) {
+    button.addEventListener('click', function() {
+      const index = this.getAttribute('data-index');
+      const container = this.closest('.row');
+      const rowCount = container.querySelectorAll('select[name^="ssseo_locations[' + index + '][hours]"]').length;
+      const row = document.createElement('div');
+      row.className = 'row g-2 align-items-center mt-2';
+      row.innerHTML = `
+        <div class="col-md-4">
+          <select class="form-select" name="ssseo_locations[${index}][hours][${rowCount}][day]">
+            <option value="">-- Day --</option>
+            ${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(day => `<option value="${day}">${day}</option>`).join('')}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <input type="time" class="form-control" name="ssseo_locations[${index}][hours][${rowCount}][open]">
+        </div>
+        <div class="col-md-4">
+          <input type="time" class="form-control" name="ssseo_locations[${index}][hours][${rowCount}][close]">
+        </div>
+      `;
+      container.appendChild(row);
+    });
+  });
 });
+
 </script>
 </form>
