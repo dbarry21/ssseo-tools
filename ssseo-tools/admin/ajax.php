@@ -288,3 +288,150 @@ function ssseo_test_maps_key() {
     update_option('ssseo_maps_test_result', $msg);
     wp_send_json_error($msg);
 }
+
+add_action( 'wp_ajax_ssseo_create_video_drafts', 'ssseo_create_video_drafts_handler' );
+
+function ssseo_create_video_drafts_handler() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( [ 'error' => 'Unauthorized access.' ] );
+    }
+
+    if ( ! check_ajax_referer( 'ssseo_generate_videos_nonce', 'nonce', false ) ) {
+        wp_send_json_error( [ 'error' => 'Security check failed.' ] );
+    }
+
+    $api_key    = get_option( 'ssseo_youtube_api_key' );
+    $channel_id = get_option( 'ssseo_youtube_channel_id' );
+
+    if ( ! $api_key || ! $channel_id ) {
+        wp_send_json_error( [ 'error' => 'Missing API key or Channel ID.' ] );
+    }
+
+    $created = 0;
+    $page_token = '';
+    $video_count = 0;
+    $max_pages = 50; // Avoid infinite loop (YouTube cap is 1000 results total)
+
+    while ( $max_pages-- ) {
+        $url = add_query_arg( [
+            'part'       => 'snippet',
+            'channelId'  => $channel_id,
+            'maxResults' => 50,
+            'order'      => 'date',
+            'type'       => 'video',
+            'key'        => $api_key,
+            'pageToken'  => $page_token,
+        ], 'https://www.googleapis.com/youtube/v3/search' );
+
+        $response = wp_remote_get( $url );
+
+        if ( is_wp_error( $response ) ) {
+            wp_send_json_error( [ 'error' => 'YouTube API error: ' . $response->get_error_message() ] );
+        }
+
+        $body = json_decode( wp_remote_retrieve_body( $response ), true );
+        if ( empty( $body['items'] ) ) {
+            break;
+        }
+
+        foreach ( $body['items'] as $item ) {
+            $video_id    = $item['id']['videoId'] ?? '';
+            $title       = $item['snippet']['title'] ?? '';
+            $video_id = $item['id']['videoId'] ?? '';
+if ( ! $video_id ) continue;
+
+// Get full video metadata from videos endpoint
+$video_meta_url = add_query_arg( [
+    'part' => 'snippet',
+    'id'   => $video_id,
+    'key'  => $api_key,
+], 'https://www.googleapis.com/youtube/v3/videos' );
+
+$video_meta_response = wp_remote_get( $video_meta_url );
+$video_meta = json_decode( wp_remote_retrieve_body( $video_meta_response ), true );
+$video_snippet = $video_meta['items'][0]['snippet'] ?? [];
+
+$title       = $video_snippet['title'] ?? 'Untitled';
+$description = $video_snippet['description'] ?? '';
+
+
+            if ( ! $video_id || ! $title ) continue;
+
+            // Skip if already imported
+            $existing = get_posts( [
+                'post_type'  => 'video',
+                'meta_key'   => 'ssseo_youtube_video_id',
+                'meta_value' => $video_id,
+                'fields'     => 'ids',
+            ] );
+            if ( ! empty( $existing ) ) continue;
+
+            // Attempt transcript fetch (unofficial API method)
+            $transcript = ssseo_get_youtube_transcript( $video_id );
+
+            // Build post content
+            $content = '<div class="ratio ratio-16x9 mb-3"><iframe src="https://www.youtube.com/embed/' . esc_attr( $video_id ) . '" frameborder="0" allowfullscreen></iframe></div>';
+
+            if ( $description ) {
+                $content .= '<h4>Description</h4><p>' . esc_html( $description ) . '</p>';
+            }
+
+            if ( $transcript ) {
+                $content .= '<h4>Transcript</h4><div style="white-space:pre-wrap;">' . esc_html( $transcript ) . '</div>';
+            }
+
+            $post_id = wp_insert_post( [
+                'post_type'    => 'video',
+                'post_title'   => wp_strip_all_tags( $title ),
+                'post_content' => $content,
+                'post_status'  => 'draft',
+            ] );
+
+            if ( $post_id && ! is_wp_error( $post_id ) ) {
+                update_post_meta( $post_id, 'ssseo_youtube_video_id', $video_id );
+                $created++;
+            }
+        }
+
+        if ( ! isset( $body['nextPageToken'] ) ) break;
+        $page_token = $body['nextPageToken'];
+    }
+
+    wp_send_json_success( [
+        'message' => "Imported $created new video draft(s)."
+    ] );
+}
+
+function ssseo_get_youtube_transcript( $video_id ) {
+    $base = "https://video.google.com/timedtext";
+
+    // Try English first
+    $transcript_url = add_query_arg( [
+        'lang' => 'en',
+        'v'    => $video_id
+    ], $base );
+
+    $response = wp_remote_get( $transcript_url );
+    if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) {
+        return '';
+    }
+
+    $xml = wp_remote_retrieve_body( $response );
+    if ( empty( $xml ) ) {
+        return ''; // No transcript found
+    }
+
+    try {
+        $lines = simplexml_load_string( $xml );
+        if ( ! $lines ) return '';
+        $text = '';
+        foreach ( $lines as $line ) {
+            $text .= (string) $line . "\n";
+        }
+        return trim( $text );
+    } catch ( Exception $e ) {
+        return '';
+    }
+}
+
+

@@ -57,31 +57,6 @@ $args = array(
 add_shortcode('service_area_list', 'service_area_shortcode');
 
 /**
- * Enqueue Bootstrap 5 CSS & JS
- */
-function mytheme_enqueue_bootstrap5() {
-    // Bootstrap 5 CSS
-    wp_enqueue_style(
-        'bootstrap-5-css',
-        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css',
-        array(),
-        '5.3.2'
-    );
-
-    // Bootstrap 5 Bundle JS (includes Popper)
-    wp_enqueue_script(
-        'bootstrap-5-js',
-        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js',
-        array(),    // no extra dependencies
-        '5.3.2',
-        true        // load in footer
-    );
-}
-add_action( 'wp_enqueue_scripts', 'mytheme_enqueue_bootstrap5' );
-
-
-
-/**
  * Shortcode: [faq_schema_accordion]
  * 
  * Outputs a Bootstrap 5 accordion of your ACF repeater 'faq_items'.

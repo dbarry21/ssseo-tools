@@ -2,7 +2,7 @@
 // File: admin/tabs/bulk.php
 if (!defined('ABSPATH')) exit;
 
-// All post types for Yoast tab
+// Load post types and group posts
 $post_types = get_post_types([], 'objects');
 $posts_by_type = [];
 foreach ($post_types as $pt) {
@@ -22,7 +22,7 @@ foreach ($post_types as $pt) {
 }
 $default_pt = array_key_first($posts_by_type);
 
-// Top-level services
+// Get root-level services and service areas
 $top_services = get_posts([
   'post_type'      => 'service',
   'post_status'    => 'publish',
@@ -32,7 +32,6 @@ $top_services = get_posts([
   'posts_per_page' => -1,
 ]);
 
-// Top-level service_area
 $top_service_areas = get_posts([
   'post_type'      => 'service_area',
   'post_status'    => 'publish',
@@ -51,6 +50,9 @@ $top_service_areas = get_posts([
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="services-tab" data-bs-toggle="tab" data-bs-target="#services" type="button" role="tab">Services Posts</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="youtube-tab" data-bs-toggle="tab" data-bs-target="#youtube" type="button" role="tab">YouTube Fix</button>
     </li>
   </ul>
 
@@ -121,6 +123,14 @@ $top_service_areas = get_posts([
         </div>
       </div>
     </div>
+
+    <!-- YouTube Tab -->
+    <div class="tab-pane fade" id="youtube" role="tabpanel" aria-labelledby="youtube-tab">
+      <p class="text-muted">This operation will scan all posts for YouTube iframes and wrap them responsively.</p>
+      <button id="ssseo_fix_youtube_iframes" class="btn btn-danger">Fix YouTube Embeds</button>
+      <div id="ssseo_youtube_result" class="alert alert-info mt-3 d-none"></div>
+      <ul id="ssseo_youtube_log" class="mt-3 list-group d-none"></ul>
+    </div>
   </div>
 </div>
 
@@ -186,17 +196,43 @@ jQuery(function($) {
     if (!areaID || !serviceIDs.length) return alert('Select both service posts and a target service area.');
 
     $.post(ssseo_admin.ajaxurl, {
-  action: 'ssseo_clone_services_to_area',
-  services: serviceIDs,
-  target_area: areaID,
-  enable_ai: $('#ssseo_generate_ai').is(':checked') ? 1 : 0,
-  _wpnonce: ssseo_admin.nonce
-}, res => {
+      action: 'ssseo_clone_services_to_area',
+      services: serviceIDs,
+      target_area: areaID,
+      enable_ai: generateAI,
+      _wpnonce: ssseo_admin.nonce
+    }, res => {
       const $out = $('#ssseo_clone_result');
       if (res.success) {
         $out.removeClass('d-none alert-danger').addClass('alert-success').html(res.data);
       } else {
         $out.removeClass('d-none alert-success').addClass('alert-danger').html(res.data || 'Error cloning services.');
+      }
+    });
+  });
+
+  $('#ssseo_fix_youtube_iframes').on('click', function() {
+    if (!confirm('Are you sure? This will process all posts and modify any YouTube iframe embed.')) return;
+
+    $.post(ssseo_admin.ajaxurl, {
+      action: 'ssseo_fix_youtube_iframes',
+      _wpnonce: ssseo_admin.nonce
+    }, function(res) {
+      const $out = $('#ssseo_youtube_result');
+      const $log = $('#ssseo_youtube_log');
+      if (res.success) {
+        $out.removeClass('d-none alert-danger').addClass('alert-success').html('YouTube iframes updated successfully.');
+        $log.removeClass('d-none').empty();
+        if (res.data.updated && res.data.updated.length) {
+          res.data.updated.forEach(post => {
+            $log.append(`<li class="list-group-item">${post.title} (completed)</li>`);
+          });
+        } else {
+          $log.append('<li class="list-group-item">No posts required updates.</li>');
+        }
+      } else {
+        $out.removeClass('d-none alert-success').addClass('alert-danger').html(res.data || 'Error updating posts.');
+        $log.addClass('d-none').empty();
       }
     });
   });
