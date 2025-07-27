@@ -267,182 +267,63 @@ $enabled    = get_option( 'ssseo_enable_youtube', '1' );
 
 <hr class="my-4">
 
-
-
-
+<hr class="my-4">
 
 <h2 class="mb-3">Import Videos</h2>
 
-
 <?php if ( ! current_user_can( 'manage_options' ) ) : ?>
-
-
     <div class="alert alert-warning">You do not have permission to generate video posts.</div>
-
-
 <?php else : ?>
-
-
-    <?php $nonce = wp_create_nonce( 'ssseo_generate_videos_nonce' ); ?>
-
-
+    <?php $full_nonce = wp_create_nonce( 'ssseo_batch_import_nonce' ); ?>
     <button
-
-
       type="button"
-
-
-      class="btn btn-success ssseo-generate-videos-btn"
-
-
-      data-nonce="<?php echo esc_attr( $nonce ); ?>"
-
-
+      class="btn btn-success ssseo-full-import-btn"
+      data-nonce="<?php echo esc_attr( $full_nonce ); ?>"
     >
-
-
-      <?php esc_html_e( 'Fetch & Create Drafts', 'ssseo' ); ?>
-
-
+      Fetch All Videos & Create Drafts
     </button>
 
-
     <p class="text-muted mt-2">
-
-
-      Click to fetch all videos from the channel and create Video CPT drafts (if they don’t already exist).
-
-
+      This will fetch all videos from the channel and create Video CPT drafts (if they don’t already exist).
     </p>
 
-
-    <div class="ssseo-generate-videos-result mt-3"></div>
-
-
+    <div class="ssseo-video-import-log mt-3 border rounded p-3 bg-light text-sm" style="max-height:400px; overflow-y:auto; font-family: monospace;"></div>
 <?php endif; ?>
-
-
-
-
-
-<hr class="my-4">
-
-
-
-
-
-<h3>Debug: Current Settings</h3>
-
-
-<ul class="list-group mb-4">
-
-
-    <li class="list-group-item"><strong>API Key:</strong> <?php echo esc_html( $api_key ); ?></li>
-
-
-    <li class="list-group-item"><strong>Channel ID:</strong> <?php echo esc_html( $channel_id ); ?></li>
-
-
-    <li class="list-group-item"><strong>YouTube Enabled:</strong> <?php echo $enabled === '1' ? 'Yes' : 'No'; ?></li>
-
-
-</ul>
-
-
-
-
-
-<h2 class="mb-3">📌 Available Shortcodes</h2>
-
-
-<ul class="list-group list-group-flush">
-
-
-    <li class="list-group-item">
-
-
-        <code>[youtube_with_transcript id="VIDEO_ID"]</code><br>
-
-
-        <small class="text-muted">→ Displays a YouTube video with its transcript, if available.</small>
-
-
-    </li>
-
-
-    <li class="list-group-item">
-
-
-        <code>[youtube_channel_list max="6" paging="true"]</code><br>
-
-
-        <small class="text-muted">→ Displays a list of videos from your channel with optional pagination and max items.</small>
-
-
-    </li>
-
-
-    <li class="list-group-item">
-
-
-        <code>[youtube_channel_list_detailed]</code><br>
-
-
-        <small class="text-muted">→ Displays detailed video cards (thumbnail, title, excerpt, link).</small>
-
-
-    </li>
-
-
-</ul>
-
-
-
-
-
-<p class="mt-3">
-
-
-  <strong>Note:</strong> Your channel ID, API key, and “Enabled” flag must be set above for these features to run.
-
-
-</p>
-
 
 <script>
 jQuery(document).ready(function($) {
-  $('.ssseo-generate-videos-btn').on('click', function(e) {
+  $('.ssseo-full-import-btn').on('click', function(e) {
     e.preventDefault();
 
     const $btn = $(this);
-    const $result = $('.ssseo-generate-videos-result');
     const nonce = $btn.data('nonce');
+    const $log = $('.ssseo-video-import-log');
 
-    $btn.prop('disabled', true).text('Fetching...');
+    $btn.prop('disabled', true).text('Importing...');
+    $log.empty().append('<div>Starting full import...</div>');
 
-    $.ajax({
-      url: ajaxurl,
-      type: 'POST',
-      dataType: 'json',
-      data: {
-        action: 'ssseo_create_video_drafts',
-        nonce: nonce
-      },
-      success: function(response) {
-        if (response.success) {
-          $result.html('<div class="alert alert-success">' + response.data.message + '</div>');
-        } else {
-          const msg = response.data?.error || 'Something went wrong.';
-          $result.html('<div class="alert alert-danger">' + msg + '</div>');
-        }
-      },
-      error: function(xhr, status, error) {
-        $result.html('<div class="alert alert-danger">AJAX error: ' + error + '</div>');
-      },
-      complete: function() {
-        $btn.prop('disabled', false).text('Fetch & Create Drafts');
+    $.post(ajaxurl, {
+      action: 'ssseo_batch_import_videos',
+      nonce: nonce
+    }).done(function(response) {
+      if (response.success && response.data && response.data.log) {
+        response.data.log.forEach(line => {
+          $log.append('<div>' + line + '</div>');
+        });
+        $log.append('<div class="mt-2 text-success fw-bold">✅ ' + response.data.message + '</div>');
+      } else {
+        $log.append('<div class="text-danger mt-2">❌ ' + (response.data?.error || 'Unknown error') + '</div>');
       }
+    }).fail(function() {
+      $log.append('<div class="text-danger mt-2">❌ AJAX failed.</div>');
+    }).always(function() {
+      $btn.prop('disabled', false).text('Fetch All Videos & Create Drafts');
     });
   });
 });
 </script>
+
+
+
+
+

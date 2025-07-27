@@ -1,32 +1,28 @@
 <?php
-/**
- * Admin UI: Local Business Schema – Bootstrap 5 Two-Column Layout
- *
- * Refactored to match Organization tab UI
- */
-
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// Save handler
+echo '<div class="wrap"><h1 class="mb-3">Local Business Locations</h1>';
+
+// --- Save handler
 if ( isset($_POST['ssseo_localbusiness_nonce']) && wp_verify_nonce($_POST['ssseo_localbusiness_nonce'], 'ssseo_localbusiness_save') ) {
     $existing = get_option('ssseo_localbusiness_locations', []);
 
-    // Handle delete request
     if ( isset($_POST['ssseo_delete_location']) ) {
         $delete_index = (int) $_POST['ssseo_delete_location'];
         if ( isset($existing[$delete_index]) ) {
             unset($existing[$delete_index]);
-            $existing = array_values($existing); // reindex
+            $existing = array_values($existing);
             update_option('ssseo_localbusiness_locations', $existing);
-            echo '<div class="alert alert-warning">Location #' . ($delete_index + 1) . ' deleted.</div>';
+            echo '<div class="notice notice-warning"><p>Location #' . ($delete_index + 1) . ' deleted.</p></div>';
             return;
         }
     }
+
     $raw = $_POST['ssseo_locations'] ?? [];
     $clean = [];
-
     foreach ( $raw as $loc ) {
         $out = [
+            'location_label' => sanitize_text_field($loc['location_label'] ?? ''),
             'name'    => sanitize_text_field($loc['name'] ?? ''),
             'phone'   => sanitize_text_field($loc['phone'] ?? ''),
             'price'   => sanitize_text_field($loc['price'] ?? ''),
@@ -38,7 +34,6 @@ if ( isset($_POST['ssseo_localbusiness_nonce']) && wp_verify_nonce($_POST['ssseo
             'lat'     => sanitize_text_field($loc['lat'] ?? ''),
             'lng'     => sanitize_text_field($loc['lng'] ?? ''),
         ];
-
         $out['hours'] = [];
         if ( isset($loc['hours']) && is_array($loc['hours']) ) {
             foreach ( $loc['hours'] as $h ) {
@@ -48,17 +43,16 @@ if ( isset($_POST['ssseo_localbusiness_nonce']) && wp_verify_nonce($_POST['ssseo
                 if ( $d || $o || $c ) $out['hours'][] = [ 'day' => $d, 'open' => $o, 'close' => $c ];
             }
         }
-
         $out['pages'] = array_map('absint', $loc['pages'] ?? []);
         $clean[] = $out;
     }
-
     update_option('ssseo_localbusiness_locations', $clean);
-    echo '<div class="alert alert-success">Local Business locations saved.</div>';
+    echo '<div class="notice notice-success"><p>Local Business locations saved.</p></div>';
 }
 
 $locations = get_option('ssseo_localbusiness_locations', []) ?: [[]];
 $defaults = [
+    'location_label' => '',
     'name' => get_option('ssseo_organization_name', ''),
     'phone' => get_option('ssseo_organization_phone', ''),
     'price' => '',
@@ -71,54 +65,58 @@ $defaults = [
     'country' => get_option('ssseo_organization_country', ''),
 ];
 $pages = get_posts([ 'post_type' => ['page','service_area'], 'post_status' => 'publish', 'numberposts' => -1, 'orderby' => 'title', 'order' => 'asc' ]);
-
 ?>
+
 <form method="post">
 <?php wp_nonce_field('ssseo_localbusiness_save', 'ssseo_localbusiness_nonce'); ?>
-
-<div class="accordion" id="locationAccordion">
+<div class="accordion container-fluid" id="locationAccordion">
 <?php foreach ($locations as $i => $loc):
     $loc = array_merge($defaults, $loc);
     $prefix = "ssseo_locations[$i]";
+    $hours_id = "hours-container-$i";
+    $label = $loc['location_label'] ? esc_html($loc['location_label']) : 'Location #' . ($i + 1);
 ?>
 <div class="accordion-item">
   <h2 class="accordion-header" id="heading<?php echo $i; ?>">
     <button class="accordion-button <?php echo $i === 0 ? '' : 'collapsed'; ?>" type="button" data-bs-toggle="collapse" data-bs-target="#collapse<?php echo $i; ?>">
-      Location #<?php echo $i + 1; ?>
+      <?php echo $label; ?>
     </button>
   </h2>
   <div id="collapse<?php echo $i; ?>" class="accordion-collapse collapse <?php echo $i === 0 ? 'show' : ''; ?>" data-bs-parent="#locationAccordion">
-    <div class="text-end mb-3">
+    <div class="accordion-body">
+      <div class="text-end mb-3">
         <button type="submit" name="ssseo_delete_location" value="<?php echo $i; ?>" class="btn btn-danger btn-sm">Delete This Location</button>
       </div>
       <div class="row">
         <div class="col-md-8">
-          <div class="row">
-          <?php
-          foreach ([
-            'name' => 'Business Name', 'phone' => 'Phone', 'price' => 'Price Range',
-            'street' => 'Street', 'city' => 'City', 'state' => 'State',
-            'zip' => 'ZIP Code', 'country' => 'Country', 'lat' => 'Latitude', 'lng' => 'Longitude'
-          ] as $field => $label):
-          ?>
-          <div class="col-md-6 mb-3">
-            <label class="form-label"><?php echo $label; ?></label>
-            <input type="text" class="form-control" name="<?php echo $prefix; ?>[<?php echo $field; ?>]" value="<?php echo esc_attr($loc[$field]); ?>">
+          <div class="mb-3">
+            <label class="form-label">Location Label (e.g. Downtown Tampa)</label>
+            <input type="text" class="form-control" name="<?php echo $prefix; ?>[location_label]" value="<?php echo esc_attr($loc['location_label']); ?>">
           </div>
-          <?php endforeach; ?>
+
+          <div class="row">
+            <?php
+            foreach ([ 'name'=>'Business Name','phone'=>'Phone','price'=>'Price Range','street'=>'Street','city'=>'City','state'=>'State','zip'=>'ZIP Code','country'=>'Country','lat'=>'Latitude','lng'=>'Longitude' ] as $field => $labelText ):
+            ?>
+            <div class="col-md-6 mb-3">
+              <label class="form-label"><?php echo $labelText; ?></label>
+              <input type="text" class="form-control" name="<?php echo $prefix; ?>[<?php echo $field; ?>]" value="<?php echo esc_attr($loc[$field]); ?>">
+            </div>
+            <?php endforeach; ?>
+          </div>
 
           <div class="mb-4">
             <label class="form-label">Opening Hours</label>
-            <div class="row g-2 align-items-center">
+            <div class="row g-2 align-items-center" id="<?php echo $hours_id; ?>">
               <?php
-              $loc['hours'] = isset($loc['hours']) && is_array($loc['hours']) && count($loc['hours']) > 0 ? $loc['hours'] : [['day' => '', 'open' => '', 'close' => '']];
-				foreach ( $loc['hours'] as $j => $hour ):
+              $loc['hours'] = isset($loc['hours']) && is_array($loc['hours']) && count($loc['hours']) > 0 ? $loc['hours'] : [['day'=>'','open'=>'','close'=>'']];
+              foreach ( $loc['hours'] as $j => $hour ):
               ?>
               <div class="col-md-4">
                 <select class="form-select" name="<?php echo $prefix; ?>[hours][<?php echo $j; ?>][day]">
                   <option value="">-- Day --</option>
                   <?php foreach (["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"] as $day): ?>
-                    <option value="<?php echo $day; ?>" <?php selected($hour['day'] ?? '', $day); ?>><?php echo $day; ?></option>
+                  <option value="<?php echo $day; ?>" <?php selected($hour['day'] ?? '', $day); ?>><?php echo $day; ?></option>
                   <?php endforeach; ?>
                 </select>
               </div>
@@ -129,33 +127,26 @@ $pages = get_posts([ 'post_type' => ['page','service_area'], 'post_status' => 'p
                 <input type="time" class="form-control" name="<?php echo $prefix; ?>[hours][<?php echo $j; ?>][close]" value="<?php echo esc_attr($hour['close'] ?? ''); ?>">
               </div>
               <?php endforeach; ?>
-				<div class="col-12 mt-2">
-  <button type="button" class="btn btn-sm btn-outline-secondary add-hours" data-index="<?php echo $i; ?>">
-    + Add Hours Row
-  </button>
-</div>
-
             </div>
-          </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-2 add-hours" data-index="<?php echo $i; ?>" data-target="<?php echo $hours_id; ?>">
+              + Add Hours Row
+            </button>
           </div>
         </div>
 
         <div class="col-md-4">
-          <div class="mb-3">
-            <label class="form-label">Assign to Pages/Service Areas</label>
-            <select class="form-select" name="<?php echo $prefix; ?>[pages][]" multiple size="12">
-              <?php
-              $sel = $loc['pages'] ?? [];
-              foreach ( $pages as $p ) {
-                $selected = in_array($p->ID, $sel) ? 'selected' : '';
-                $label = get_post_type($p->ID) === 'service_area' ? 'Service Area: ' : '';
-                echo "<option value=\"{$p->ID}\" $selected>{$label}{$p->post_title}</option>";
-              }
-              ?>
-            </select>
-          </div>
+          <label class="form-label">Assign to Pages/Service Areas</label>
+          <select class="form-select" name="<?php echo $prefix; ?>[pages][]" multiple size="12">
+            <?php
+            $sel = $loc['pages'] ?? [];
+            foreach ( $pages as $p ) {
+              $selected = in_array($p->ID, $sel) ? 'selected' : '';
+              $labelP = get_post_type($p->ID) === 'service_area' ? 'Service Area: ' : '';
+              echo "<option value=\"{$p->ID}\" $selected>{$labelP}{$p->post_title}</option>";
+            }
+            ?>
+          </select>
         </div>
-
       </div>
     </div>
   </div>
@@ -167,6 +158,9 @@ $pages = get_posts([ 'post_type' => ['page','service_area'], 'post_status' => 'p
   <button type="submit" class="btn btn-primary">Save Locations</button>
   <button type="button" class="btn btn-secondary ms-2" id="addLocation">+ Add Location</button>
 </p>
+</form>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('addLocation')?.addEventListener('click', function () {
@@ -180,10 +174,12 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   document.querySelectorAll('.add-hours').forEach(function(button) {
-    button.addEventListener('click', function() {
+    button.addEventListener('click', function () {
+      const targetId = this.getAttribute('data-target');
+      const container = document.getElementById(targetId);
       const index = this.getAttribute('data-index');
-      const container = this.closest('.row');
-      const rowCount = container.querySelectorAll('select[name^="ssseo_locations[' + index + '][hours]"]').length;
+      const rowCount = container.querySelectorAll('select').length;
+
       const row = document.createElement('div');
       row.className = 'row g-2 align-items-center mt-2';
       row.innerHTML = `
@@ -204,6 +200,4 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 });
-
 </script>
-</form>

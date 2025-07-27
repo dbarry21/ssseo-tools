@@ -396,3 +396,49 @@ function ssseo_shortcode_about_the_area($atts) {
     $content = get_post_meta($post->ID, '_about_the_area', true);
     return wpautop(do_shortcode($content));
 }
+
+/**
+ * Shortcode: [service_grid]
+ * Displays 'service' posts in a responsive Bootstrap grid.
+ * Each service is wrapped in a div with class 'service-box'.
+ */
+function ssseo_service_grid_shortcode() {
+    ob_start();
+
+    $services = new WP_Query([
+        'post_type'      => 'service',
+        'posts_per_page' => -1,
+        'post_status'    => 'publish',
+    ]);
+
+    if ( $services->have_posts() ) :
+        echo '<div class="row">';
+
+        while ( $services->have_posts() ) : $services->the_post();
+            $post_id    = get_the_ID();
+            $title      = get_the_title();
+            $permalink  = get_permalink();
+            $thumb_url  = get_the_post_thumbnail_url( $post_id, 'large' );
+
+            echo '<div class="col-md-6 col-lg-3 mb-4">';
+            echo '<div class="service-box h-100">';
+
+            if ( $thumb_url ) {
+                echo '<a href="' . esc_url( $permalink ) . '">';
+                echo '<img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $title ) . '" class="img-fluid mb-3 rounded">';
+                echo '</a>';
+            }
+
+            echo '<h4><a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a></h4>';
+            echo '</div></div>';
+        endwhile;
+
+        echo '</div>';
+        wp_reset_postdata();
+    else :
+        echo '<p>No services found.</p>';
+    endif;
+
+    return ob_get_clean();
+}
+add_shortcode( 'service_grid', 'ssseo_service_grid_shortcode' );

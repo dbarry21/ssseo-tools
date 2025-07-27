@@ -6,7 +6,7 @@ Plugin Name: SSSEO Tools
 
 Description: Modular plugin for SEO and content enhancements.
 
-Version: 2.3.1
+Version: 2.3.2
 
 Author: Dave Barry
 
@@ -476,28 +476,35 @@ function ssseo_enqueue_admin_bootstrap($hook) {
 
 
 
-// Enqueue Bootstrap from plugin assets/css and assets/js
-add_action('wp_enqueue_scripts', function () {
-    $plugin_url = plugin_dir_url(__FILE__);
+// Bootstrap 5.3+ via CDN
 
-    // Enqueue Bootstrap CSS
     wp_enqueue_style(
-        'ssseo-bootstrap-css',
-        $plugin_url . 'assets/css/bootstrap.min.css',
+
+        'ssseo-bootstrap',
+
+        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
+
         [],
+
         '5.3.3'
+
     );
 
-    // Enqueue Bootstrap JS
+
+
     wp_enqueue_script(
-        'ssseo-bootstrap-js',
-        $plugin_url . 'assets/js/bootstrap.bundle.min.js',
-        [],
-        '5.3.3',
-        true
-    );
-});
 
+        'ssseo-bootstrap',
+
+        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js',
+
+        [],
+
+        '5.3.3',
+
+        true
+
+    );
 
 }
 

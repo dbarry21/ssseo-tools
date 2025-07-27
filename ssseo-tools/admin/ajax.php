@@ -402,36 +402,128 @@ $description = $video_snippet['description'] ?? '';
     ] );
 }
 
-function ssseo_get_youtube_transcript( $video_id ) {
-    $base = "https://video.google.com/timedtext";
+add_action( 'wp_ajax_ssseo_batch_import_videos', 'ssseo_batch_import_videos_handler' );
 
-    // Try English first
-    $transcript_url = add_query_arg( [
-        'lang' => 'en',
-        'v'    => $video_id
-    ], $base );
+function ssseo_batch_import_videos_handler() {
+    check_ajax_referer( 'ssseo_batch_import_nonce', 'nonce' );
 
-    $response = wp_remote_get( $transcript_url );
-    if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) {
-        return '';
+    $api_key    = get_option( 'ssseo_youtube_api_key' );
+    $channel_id = get_option( 'ssseo_youtube_channel_id' );
+    $imported   = 0;
+    $log        = [];
+
+    if ( empty( $api_key ) || empty( $channel_id ) ) {
+        wp_send_json_error( [ 'error' => 'Missing API key or channel ID' ] );
     }
+
+    $page_token = '';
+    $base_url = 'https://www.googleapis.com/youtube/v3/search';
+
+    do {
+        $params = [
+            'key'       => $api_key,
+            'channelId' => $channel_id,
+            'part'      => 'snippet',
+            'maxResults'=> 50,
+            'order'     => 'date',
+            'type'      => 'video',
+        ];
+
+        if ( $page_token ) {
+            $params['pageToken'] = $page_token;
+        }
+
+        $url      = $base_url . '?' . http_build_query( $params );
+        $response = wp_remote_get( $url );
+        $body     = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( is_wp_error( $response ) || empty( $body['items'] ) ) {
+            $log[] = '❌ Error fetching data from YouTube API.';
+            break;
+        }
+
+        foreach ( $body['items'] as $item ) {
+            $video_id = $item['id']['videoId'] ?? '';
+            $title    = sanitize_text_field( $item['snippet']['title'] ?? '' );
+            $desc     = $item['snippet']['description'] ?? '';
+
+            if ( ! $video_id || post_exists( $title ) ) {
+                $log[] = "⏭️ Skipped: $title (already exists or invalid)";
+                continue;
+            }
+
+            // --- Get transcript
+            $transcript_html = ssseo_get_youtube_transcript( $video_id );
+
+            // --- Build content
+            $post_content = '<div class="ratio ratio-16x9 mb-3">
+<iframe src="https://www.youtube.com/embed/' . esc_attr( $video_id ) . '" allowfullscreen></iframe>
+</div>';
+
+            if ( $desc ) {
+                $post_content .= '<h3>Description</h3><div class="video-description">' . nl2br( esc_html( $desc ) ) . '</div>';
+            }
+
+            if ( $transcript_html ) {
+                $post_content .= '<h3>Transcript</h3><div class="video-transcript">' . $transcript_html . '</div>';
+            }
+
+            $post_id = wp_insert_post( [
+                'post_type'    => 'video',
+                'post_status'  => 'draft',
+                'post_title'   => $title,
+                'post_content' => $post_content,
+            ] );
+
+            if ( $post_id && ! is_wp_error( $post_id ) ) {
+                $imported++;
+                $log[] = "✅ Imported: $title";
+            } else {
+                $log[] = "❌ Failed to import: $title";
+            }
+        }
+
+        $page_token = $body['nextPageToken'] ?? '';
+    } while ( $page_token );
+
+    if ( $imported > 0 ) {
+        wp_send_json_success( [
+            'message' => "Imported $imported new video(s).",
+            'log'     => $log
+        ] );
+    } else {
+        wp_send_json_error( [
+            'error' => 'No new videos were imported.',
+            'log'   => $log
+        ] );
+    }
+}
+
+
+function ssseo_get_youtube_transcript( $video_id ) {
+    $url = 'https://video.google.com/timedtext?lang=en&v=' . urlencode( $video_id );
+    $response = wp_remote_get( $url );
+
+    if ( is_wp_error( $response ) ) return '';
 
     $xml = wp_remote_retrieve_body( $response );
-    if ( empty( $xml ) ) {
-        return ''; // No transcript found
-    }
+    if ( empty( $xml ) ) return '';
 
     try {
-        $lines = simplexml_load_string( $xml );
-        if ( ! $lines ) return '';
-        $text = '';
-        foreach ( $lines as $line ) {
-            $text .= (string) $line . "\n";
-        }
-        return trim( $text );
+        $srt = new SimpleXMLElement( $xml );
     } catch ( Exception $e ) {
         return '';
     }
+
+    $lines = [];
+    foreach ( $srt->text as $line ) {
+        $text = (string) $line;
+        $text = str_replace( "\n", ' ', $text );
+        $lines[] = esc_html( $text );
+    }
+
+    return '<p>' . implode( '</p><p>', $lines ) . '</p>';
 }
+
 
 
