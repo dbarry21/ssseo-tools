@@ -6,7 +6,7 @@ Plugin Name: SSSEO Tools
 
 Description: Modular plugin for SEO and content enhancements.
 
-Version: 2.3.2
+Version: 2.3.5
 
 Author: Dave Barry
 
