@@ -163,11 +163,122 @@ function ssseo_send_openai_request( $prompt, $max_tokens = 160 ) {
     return trim( trim( $body['choices'][0]['message']['content'] ), '"' );
 }
 
-
 /**
- * Public Function: Generate AI HTML for "About the Area"
+ * Generate and Save "About the Area" AI Content
  */
-function ssseo_generate_ai_about_area_html( $prompt ) {
-    $result = ssseo_send_openai_request( $prompt, 900 );
-    return is_wp_error( $result ) ? '' : wpautop( trim( $result ) );
+add_action('wp_ajax_ssseo_ai_generate_about_area', 'ssseo_ai_generate_about_area_callback');
+
+function ssseo_ai_generate_about_area_callback() {
+    if (
+        empty($_POST['nonce']) ||
+        !wp_verify_nonce($_POST['nonce'], 'ssseo_ai_generate') ||
+        !current_user_can('edit_posts')
+    ) {
+        //wp_send_json_error('Unauthorized');
+    }
+
+    $post_id = intval($_POST['post_id'] ?? 0);
+    if (!$post_id) wp_send_json_error('Invalid post ID');
+
+    $area_name     = function_exists('get_field') ? get_field('city_state', $post_id) : '';
+    $service_title = get_the_title($post_id);
+
+    // Pull plugin-wide options
+    $service_label = get_option('ssseo_default_service_label', 'local services');
+    $org_desc      = get_option('ssseo_org_description', '');
+
+    if (empty($area_name) || empty($service_title)) {
+        wp_send_json_error('Missing input data');
+    }
+
+    // Construct the OpenAI prompt
+    $prompt = sprintf(
+        "Write a compelling, SEO-optimized HTML section about %s for a local %s business page titled \"%s\".\n\n" .
+        "%s\n\n" .
+        "Include local landmarks, community relevance, related businesses, and surrounding areas. Use natural, engaging language.\n" .
+        "Format with HTML headings and paragraphs. Bold key phrases, places of interest, and neighborhoods with <strong> html tags. Do not include ```html or ```.\n" .
+        "Avoid adding a conclusion.",
+        $area_name,
+        $service_label,
+        $service_title,
+        $org_desc ? "Business description: $org_desc" : ''
+    );
+
+    $result = ssseo_send_openai_request($prompt, 900);
+
+    if (is_wp_error($result)) {
+        wp_send_json_error($result->get_error_message());
+    }
+
+    update_post_meta($post_id, '_about_the_area', wp_kses_post($result));
+
+    wp_send_json_success([
+        'generated' => wpautop($result)
+    ]);
 }
+
+
+
+
+
+add_action('wp_ajax_ssseo_get_city_state', function () {
+    header('Content-Type: application/json');
+
+    $post_id = intval($_POST['post_id'] ?? 0);
+    $nonce   = $_POST['nonce'] ?? '';
+
+    // Debug log
+    error_log("AJAX Request: post_id=$post_id, nonce=$nonce");
+
+    if (empty($nonce) || !wp_verify_nonce($nonce, 'ssseo_ai_generate')) {
+        error_log("❌ Nonce failed or empty");
+        wp_send_json_error('Unauthorized');
+    }
+
+    if (!$post_id || get_post_status($post_id) === false) {
+        error_log("❌ Invalid post ID: $post_id");
+        wp_send_json_error('Invalid post ID');
+    }
+
+    // Retrieve city_state using ACF only
+    $area_name = function_exists('get_field') ? get_field('city_state', $post_id) : '';
+
+    if (empty($area_name)) {
+        error_log("❌ city_state field not found or empty for post ID: $post_id");
+        wp_send_json_error('city_state field is empty or not found');
+    }
+
+    error_log("✅ Retrieved city_state: $area_name");
+    wp_send_json_success($area_name);
+});
+
+
+add_action('wp_ajax_ssseo_get_posts_by_type', function () {
+    if (!current_user_can('edit_posts')) {
+        wp_send_json_error('Unauthorized');
+    }
+
+    $post_type = sanitize_text_field($_POST['post_type'] ?? '');
+
+    if (!$post_type || !post_type_exists($post_type)) {
+        wp_send_json_error('Invalid post type');
+    }
+
+    $posts = get_posts([
+        'post_type'      => $post_type,
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'orderby'        => 'title',
+        'order'          => 'ASC',
+        'fields'         => ['ID', 'post_title'],
+    ]);
+
+    $results = array_map(function ($p) {
+        return [
+            'id'    => $p->ID,
+            'title' => $p->post_title,
+        ];
+    }, $posts);
+
+    wp_send_json_success($results);
+});

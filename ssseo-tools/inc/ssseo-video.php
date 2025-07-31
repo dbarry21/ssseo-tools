@@ -1,40 +1,5 @@
 <?php
 
-/**
-
- * ssseo-video.php
-
- *
-
- *
-
- * Provides:
-
- *   - Live Customizer settings for YouTube API Key & Channel ID, plus a “Generate Video Posts” button
-
- *   - [youtube_with_transcript] shortcode
-
- *   - [youtube_channel_list] shortcode (optional paging + optional max + Visit Post button)
-
- *   - [youtube_channel_list_detailed] shortcode
-
- *   - “Video” custom post type registration
-
- *   - Dedicated "YouTube Video ID" meta-box for CPT "video"
-
- *   - Bulk‐generate Video CPT posts from a channel via AJAX/Customizer button (titles now use YouTube title)
-
- *
-
- * Version: 2.3 (Ver 2.2 + use YouTube video title for draft titles)
-
- */
-
-if ( ! defined( 'ABSPATH' ) ) {
-
-    exit;
-
-}
 
 if ( ! get_option( 'ssseo_enable_youtube', true ) ) {
 
@@ -1336,8 +1301,9 @@ add_action( 'init', 'ssseo_register_video_cpt' );
 
  */
 
-add_action( 'add_meta_boxes', 'ssseo_add_video_id_metabox' );
-
+add_action('add_meta_boxes', function() {
+    add_meta_box('ssseo_video_id_box', 'YouTube Video Integration', 'ssseo_video_id_metabox_callback', 'video', 'normal', 'high');
+});
 function ssseo_add_video_id_metabox() {
 
     add_meta_box(
@@ -1346,7 +1312,13 @@ function ssseo_add_video_id_metabox() {
 
         __( 'YouTube Video ID', 'ssseo' ), // Meta box title
 
-        'ssseo_video_id_metabox_callback',  // Callback to render the box
+        'ssseo_video_id_metabox_
+  
+  
+  
+  
+  
+  ',  // Callback to render the box
 
         'video',                            // Post type
 
@@ -1359,22 +1331,39 @@ function ssseo_add_video_id_metabox() {
 }
 
 function ssseo_video_id_metabox_callback( $post ) {
-
     wp_nonce_field( 'ssseo_save_video_id', 'ssseo_video_id_nonce' );
 
-    $current_id = get_post_meta( $post->ID, '_ssseo_video_id', true );
+    $video_id  = get_post_meta( $post->ID, '_ssseo_video_id', true );
+    $transcript = get_post_meta( $post->ID, '_ssseo_video_transcript', true );
+    $captions   = get_post_meta( $post->ID, '_ssseo_video_captions', true );
 
-    echo '<label for="ssseo_video_id_field">' . esc_html__( 'Enter the YouTube Video ID (11 characters):', 'ssseo' ) . '</label><br>';
-
+    echo '<label for="ssseo_video_id_field">' . esc_html__( 'Enter the YouTube Video ID:', 'ssseo' ) . '</label><br>';
     printf(
-
-        '<input type="text" id="ssseo_video_id_field" name="ssseo_video_id_field" value="%1$s" size="25" placeholder="e.g. dQw4w9WgXcQ" />',
-
-        esc_attr( $current_id )
-
+        '<input type="text" id="ssseo_video_id_field" name="ssseo_video_id_field" value="%1$s" size="25" placeholder="e.g. dQw4w9WgXcQ" class="regular-text" />',
+        esc_attr( $video_id )
     );
 
+    echo '<br><br>';
+    echo '<button type="button" class="button button-primary" id="ssseo-generate-transcript" data-post-id="' . esc_attr( $post->ID ) . '">' . esc_html__( 'Generate Transcript', 'ssseo' ) . '</button> ';
+    echo '<button type="button" class="button" id="ssseo-fetch-captions" data-post-id="' . esc_attr( $post->ID ) . '">' . esc_html__( 'Fetch Captions', 'ssseo' ) . '</button> ';
+    echo '<button type="button" class="button" id="ssseo-fetch-ai-captions" data-post-id="' . esc_attr( $post->ID ) . '">' . esc_html__( 'Fetch AI Captions', 'ssseo' ) . '</button>';
+
+    echo '<div id="ssseo-transcript-result" style="margin-top:15px;">';
+    if ( $transcript ) {
+        echo '<strong>Transcript Preview:</strong>';
+        echo '<textarea readonly style="width:100%;height:200px;">' . esc_textarea( $transcript ) . '</textarea>';
+    }
+    echo '</div>';
+
+    echo '<div id="ssseo-captions-result" style="margin-top:15px;">';
+    echo '<strong>Captions:</strong>';
+    echo '<textarea readonly style="width:100%;height:150px;">' .
+         esc_textarea( $captions ?: 'No captions found yet. Click a Fetch button.' ) .
+         '</textarea>';
+    echo '</div>';
 }
+
+
 
 add_action( 'save_post', 'ssseo_save_video_id_metabox_data' );
 
@@ -2009,3 +1998,5 @@ function ssseo_insert_single_video_schema() {
     echo "<!-- END Single VideoObject JSON-LD -->\n";
 
 }
+
+

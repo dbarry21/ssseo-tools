@@ -159,6 +159,22 @@ function ssseo_tools_render_admin_page() {
 }
 
 
+add_action( 'admin_enqueue_scripts', function( $hook ) {
+    if ( 'post.php' !== $hook && 'post-new.php' !== $hook ) return;
+
+    wp_enqueue_script(
+        'ssseo-video-transcript',
+        plugins_url( 'assets/js/ssseo-transcript.js', __FILE__ ),
+        [ 'jquery' ],
+        '1.0',
+        true
+    );
+
+    wp_localize_script( 'ssseo-video-transcript', 'SSSEO_Transcript', [
+        'ajax_url' => admin_url( 'admin-ajax.php' ),
+        'nonce'    => wp_create_nonce( 'ssseo_generate_transcript_nonce' ),
+    ] );
+} );
 
 
 
@@ -218,17 +234,12 @@ function ssseo_tools_enqueue_admin_assets( $hook ) {
 
 }
 
-
-
-
-
-
-
 // -------------------------
 
 // Enqueue AI tab script (only when tab=ai)
 
 // -------------------------
+
 
 add_action( 'admin_enqueue_scripts', 'ssseo_enqueue_ai_tab_script' );
 
@@ -619,4 +630,63 @@ add_action( 'save_post_service_area', function( $post_id ) {
     }
 
 } );
+
+add_action( 'wp_ajax_ssseo_generate_transcript', 'ssseo_generate_transcript_handler' );
+function ssseo_generate_transcript_handler() {
+    if ( ! current_user_can( 'edit_posts' ) || empty( $_POST['post_id'] ) ) {
+        wp_send_json_error( 'Unauthorized or missing data.' );
+    }
+
+    $post_id  = absint( $_POST['post_id'] );
+    $video_id = get_post_meta( $post_id, '_ssseo_video_id', true );
+    $title    = get_the_title( $post_id );
+    $desc     = get_the_excerpt( $post_id );
+
+    if ( ! $video_id || ! $title ) {
+        wp_send_json_error( 'Missing video ID or title.' );
+    }
+
+    // --- Build OpenAI prompt ---
+    $prompt = "Generate a summarized transcript for the YouTube video titled:\n\n"
+            . "\"$title\"\n\n"
+            . "Description:\n$desc\n\n"
+            . "If you know the topic or style, use that to help summarize as if you're recapping what was said in the video.";
+
+    // --- Call OpenAI (replace this with your OpenAI helper function if available) ---
+    $api_key = get_option( 'ssseo_openai_api_key' );
+    if ( ! $api_key ) wp_send_json_error( 'Missing API key' );
+
+   $response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', [
+    'headers' => [
+        'Authorization' => 'Bearer ' . $api_key,
+        'Content-Type'  => 'application/json',
+    ],
+    'body' => json_encode([
+        'model'    => 'gpt-4',
+        'messages' => [
+            [ 'role' => 'system', 'content' => 'You are a helpful assistant summarizing YouTube videos.' ],
+            [ 'role' => 'user',   'content' => $prompt ],
+        ],
+        'max_tokens'   => 1000,
+        'temperature'  => 0.7,
+    ]),
+    'timeout' => 30, // Increase to 30 seconds
+]);
+
+
+    if ( is_wp_error( $response ) ) {
+        wp_send_json_error( $response->get_error_message() );
+    }
+
+    $data = json_decode( wp_remote_retrieve_body( $response ), true );
+    $summary = $data['choices'][0]['message']['content'] ?? '';
+
+    if ( ! $summary ) {
+        wp_send_json_error( 'No content returned.' );
+    }
+
+    update_post_meta( $post_id, '_ssseo_video_transcript', sanitize_textarea_field( $summary ) );
+
+    wp_send_json_success( $summary );
+}
 
