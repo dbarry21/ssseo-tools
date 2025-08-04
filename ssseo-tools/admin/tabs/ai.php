@@ -197,13 +197,7 @@ $default_pt = in_array('video', array_keys($posts_by_type), true) ? 'video' : ar
 
 
 
-<script>
 
-var ssseoPostsByType = <?php echo wp_json_encode($posts_by_type); ?>;
-
-var ssseoDefaultType = "<?php echo esc_js($default_pt); ?>";
-
-</script>
 
 <hr class="my-5">
 
@@ -236,3 +230,11 @@ if (function_exists('ssseo_output_llms_to_string')) {
     echo '<div class="alert alert-warning">llms.txt preview function not available.</div>';
 
 }
+	?>
+<script>
+
+var ssseoPostsByType = <?php echo wp_json_encode($posts_by_type); ?>;
+
+var ssseoDefaultType = "<?php echo esc_js($default_pt); ?>";
+
+</script>

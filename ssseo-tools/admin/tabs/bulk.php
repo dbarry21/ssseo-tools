@@ -3,7 +3,8 @@
 if (!defined('ABSPATH')) exit;
 
 // Load post types and group posts
-$post_types = get_post_types([], 'objects');
+$post_types = get_post_types(['public' => true], 'objects');
+
 $posts_by_type = [];
 foreach ($post_types as $pt) {
   $all_posts = get_posts([
@@ -132,109 +133,10 @@ $top_service_areas = get_posts([
       <ul id="ssseo_youtube_log" class="mt-3 list-group d-none"></ul>
     </div>
   </div>
-</div>
-
 <script>
 const ssseoPostsByType = <?= wp_json_encode($posts_by_type); ?>;
 const ssseoDefaultType = "<?= esc_js($default_pt); ?>";
-
-jQuery(function($) {
-  const $select = $('#ssseo_bulk_post_id');
-  const $results = $('#ssseo_bulk_result');
-
-  function updateSelectOptions(pt, search = '') {
-    const posts = ssseoPostsByType[pt] || [];
-    const matches = posts.filter(p => p.title.toLowerCase().includes(search.toLowerCase()));
-    $select.empty();
-    if (matches.length) {
-      matches.forEach(p => $select.append(`<option value="${p.id}">${p.title} (#${p.id})</option>`));
-    } else {
-      $select.append('<option disabled>No matching posts found</option>');
-    }
-  }
-
-  function handleBulkAction(action, message) {
-    const selected = $select.val();
-    if (!selected?.length) return alert('Please select at least one post.');
-    $.post(ssseo_admin.ajaxurl, {
-      action, post_ids: selected, _wpnonce: ssseo_admin.nonce
-    }, res => {
-      if (res.success) {
-        let html = `<strong>${selected.length} ${message}:</strong><ul class='mt-2 ps-3'>`;
-        selected.forEach(id => {
-          const label = $select.find(`option[value='${id}']`).text();
-          html += `<li>${label}</li>`;
-        });
-        html += '</ul>';
-        $results.html(html).show();
-      } else {
-        alert(res.data || 'An error occurred');
-        $results.hide();
-      }
-    });
-  }
-
-  $('#ssseo_bulk_pt_filter').on('change', function() {
-    updateSelectOptions(this.value, $('#ssseo_bulk_post_search').val());
-  });
-
-  $('#ssseo_bulk_post_search').on('input', function() {
-    updateSelectOptions($('#ssseo_bulk_pt_filter').val(), this.value);
-  });
-
-  $('#ssseo_bulk_indexfollow').on('click', () => handleBulkAction('ssseo_yoast_set_index_follow', 'post(s) updated'));
-  $('#ssseo_bulk_reset_canonical').on('click', () => handleBulkAction('ssseo_yoast_reset_canonical', 'canonical URL(s) reset'));
-  $('#ssseo_bulk_clear_canonical').on('click', () => handleBulkAction('ssseo_yoast_clear_canonical', 'canonical URL(s) cleared'));
-
-  updateSelectOptions(ssseoDefaultType);
-
-  $('#ssseo_clone_services_btn').on('click', function() {
-    const serviceIDs = $('#ssseo_service_root_posts').val() || [];
-    const areaID = $('#ssseo_target_service_area').val();
-    const generateAI = $('#ssseo_generate_ai').is(':checked') ? 1 : 0;
-
-    if (!areaID || !serviceIDs.length) return alert('Select both service posts and a target service area.');
-
-    $.post(ssseo_admin.ajaxurl, {
-      action: 'ssseo_clone_services_to_area',
-      services: serviceIDs,
-      target_area: areaID,
-      enable_ai: generateAI,
-      _wpnonce: ssseo_admin.nonce
-    }, res => {
-      const $out = $('#ssseo_clone_result');
-      if (res.success) {
-        $out.removeClass('d-none alert-danger').addClass('alert-success').html(res.data);
-      } else {
-        $out.removeClass('d-none alert-success').addClass('alert-danger').html(res.data || 'Error cloning services.');
-      }
-    });
-  });
-
-  $('#ssseo_fix_youtube_iframes').on('click', function() {
-    if (!confirm('Are you sure? This will process all posts and modify any YouTube iframe embed.')) return;
-
-    $.post(ssseo_admin.ajaxurl, {
-      action: 'ssseo_fix_youtube_iframes',
-      _wpnonce: ssseo_admin.nonce
-    }, function(res) {
-      const $out = $('#ssseo_youtube_result');
-      const $log = $('#ssseo_youtube_log');
-      if (res.success) {
-        $out.removeClass('d-none alert-danger').addClass('alert-success').html('YouTube iframes updated successfully.');
-        $log.removeClass('d-none').empty();
-        if (res.data.updated && res.data.updated.length) {
-          res.data.updated.forEach(post => {
-            $log.append(`<li class="list-group-item">${post.title} (completed)</li>`);
-          });
-        } else {
-          $log.append('<li class="list-group-item">No posts required updates.</li>');
-        }
-      } else {
-        $out.removeClass('d-none alert-success').addClass('alert-danger').html(res.data || 'Error updating posts.');
-        $log.addClass('d-none').empty();
-      }
-    });
-  });
-});
 </script>
+
+</div>
+

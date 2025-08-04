@@ -1,692 +1,262 @@
 <?php
+/**
+ * Plugin Name: SSSEO Tools
+ * Description: Modular plugin for SEO and content enhancements.
+ * Version: 2.3.6
+ * Author: Dave Barry
+ * Text Domain: ssseo
+ */
 
-/*
+defined('ABSPATH') || exit;
 
-Plugin Name: SSSEO Tools
-
-Description: Modular plugin for SEO and content enhancements.
-
-Version: 2.3.5
-
-Author: Dave Barry
-
-Text Domain: ssseo
-
-*/
-
-
-
-defined( 'ABSPATH' ) || exit;
-
-
-
+// Core Includes
 require_once __DIR__ . '/github-updater.php';
+require_once __DIR__ . '/schema-functions.php';
+require_once __DIR__ . '/admin/ajax.php';
+require_once __DIR__ . '/inc/yoast-log-hooks.php';
+require_once __DIR__ . '/inc/llms-output.php';
 
+// Modules
+require_once __DIR__ . '/modules/cpt-registration.php';
+require_once __DIR__ . '/modules/shortcodes.php';
+require_once __DIR__ . '/modules/filters.php';
+require_once __DIR__ . '/modules/map-as-featured.php';
+require_once __DIR__ . '/modules/ai-functions.php';
 
-
-// In ssseo-tools.php, where you include the video code:
-
-if ( '1' === get_option( 'ssseo_enable_youtube', '1' ) ) {
-
-    require_once plugin_dir_path( __FILE__ ) . 'inc/ssseo-video.php';
-
+if (get_option('ssseo_enable_youtube', '1') === '1') {
+    require_once __DIR__ . '/inc/ssseo-video.php';
 }
 
-
-
-// -------------------------
-
-// Load Admin Bar Menu
-
-// -------------------------
-
-add_action( 'after_setup_theme', function() {
-
-    if ( is_admin_bar_showing() ) {
-
-        require_once plugin_dir_path( __FILE__ ) . 'admin/admin-bar-menu.php';
-
+// Admin Bar
+add_action('after_setup_theme', function () {
+    if (is_admin_bar_showing()) {
+        require_once __DIR__ . '/admin/admin-bar-menu.php';
     }
+});
 
-} );
-
-
-
-
-
-// -------------------------
-
-// Include YouTube module
-
-// -------------------------
-
-$youtube_path = plugin_dir_path( __FILE__ ) . 'modules/videoblog/youtube.php';
-
-if ( file_exists( $youtube_path ) ) {
-
-    //require_once $youtube_path;
-
-}
-
-
-
-
-
-// -------------------------
-
-// Register admin menu
-
-// -------------------------
-
-add_action( 'admin_menu', 'ssseo_tools_add_admin_menu' );
-
-function ssseo_tools_add_admin_menu() {
-
+// Admin Menu
+add_action('admin_menu', function () {
     add_menu_page(
-
         'SSSEO Tools',
-
         'SSSEO Tools',
-
         'manage_options',
-
         'ssseo-tools',
-
         'ssseo_tools_render_admin_page',
-
         'dashicons-chart-area',
-
         60
-
     );
+});
 
-}
-
-
-
+// Tab Loader
 function ssseo_tools_render_admin_page() {
-
     $active_tab = $_GET['tab'] ?? 'videoblog';
 
+    echo '<div class="wrap"><h1>SSSEO Tools</h1><nav class="nav-tab-wrapper">';
 
+    $tabs = [
+        'videoblog'        => 'Video Blog',
+        'schema'           => 'Schema',
+        'cpt'              => 'CPT Setup',
+        'site-options'     => 'Site Options',
+        'shortcodes'       => 'Shortcodes',
+        'ai'               => 'AI',
+        'bulk'             => 'Bulk Operations',
+        'meta-tag-history' => 'Meta Tag History',
+    ];
 
-    echo '<div class="wrap">';
-
-    echo '<h1>SSSEO Tools</h1>';
-
-
-
-    // Render navigation tabs
-
-    echo '<nav class="nav-tab-wrapper">';
-
-    echo '<a href="?page=ssseo-tools&tab=videoblog"   class="nav-tab ' . ( $active_tab === 'videoblog'   ? 'nav-tab-active' : '' ) . '">Video Blog</a>';
-
-    echo '<a href="?page=ssseo-tools&tab=schema"       class="nav-tab ' . ( $active_tab === 'schema'       ? 'nav-tab-active' : '' ) . '">Schema</a>';
-
-    echo '<a href="?page=ssseo-tools&tab=cpt"          class="nav-tab ' . ( $active_tab === 'cpt'          ? 'nav-tab-active' : '' ) . '">CPT Setup</a>';
-
-    echo '<a href="?page=ssseo-tools&tab=site-options" class="nav-tab ' . ( $active_tab === 'site-options' ? 'nav-tab-active' : '' ) . '">Site Options</a>';
-
-    echo '<a href="?page=ssseo-tools&tab=shortcodes"   class="nav-tab ' . ( $active_tab === 'shortcodes'   ? 'nav-tab-active' : '' ) . '">Shortcodes</a>';
-
-    echo '<a href="?page=ssseo-tools&tab=ai"           class="nav-tab ' . ( $active_tab === 'ai'           ? 'nav-tab-active' : '' ) . '">AI</a>';
-
-	echo '<a href="?page=ssseo-tools&tab=bulk"           class="nav-tab ' . ( $active_tab === 'bulk'           ? 'nav-tab-active' : '' ) . '">Bulk Operations</a>';
-
-	echo '<a href="?page=ssseo-tools&tab=meta-tag-history"           class="nav-tab ' . ( $active_tab === 'meta-tag-history'           ? 'nav-tab-active' : '' ) . '">Meta Tag History</a>';
+    foreach ($tabs as $slug => $label) {
+        $active = $slug === $active_tab ? ' nav-tab-active' : '';
+        echo "<a href='?page=ssseo-tools&tab=$slug' class='nav-tab$active'>$label</a>";
+    }
 
     echo '</nav>';
 
-
-
-    $tab_file = plugin_dir_path( __FILE__ ) . "admin/tabs/{$active_tab}.php";
-
-    if ( file_exists( $tab_file ) ) {
-
-        include $tab_file;
-
-    } else {
-
-        echo '<p><em>Module tab not found.</em></p>';
-
-    }
-
-
-
+    $tab_file = plugin_dir_path(__FILE__) . "admin/tabs/{$active_tab}.php";
+    file_exists($tab_file) ? include $tab_file : print '<p><em>Module tab not found.</em></p>';
     echo '</div>';
-
 }
 
+// Admin Assets
+add_action('admin_enqueue_scripts', function ($hook) {
+    if (strpos($hook, 'ssseo-tools') === false) return;
 
-add_action( 'admin_enqueue_scripts', function( $hook ) {
-    if ( 'post.php' !== $hook && 'post-new.php' !== $hook ) return;
+    wp_enqueue_media();
+    wp_enqueue_style('ssseo-bootstrap', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css', [], '5.3.3');
+    wp_enqueue_script('ssseo-bootstrap', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js', [], '5.3.3', true);
+    wp_enqueue_script('ssseo-admin-js', plugin_dir_url(__FILE__) . 'assets/js/ssseo-admin.js', ['jquery'], filemtime(__DIR__ . '/assets/js/ssseo-admin.js'), true);
+
+    wp_localize_script('ssseo-admin-js', 'ssseo_admin', [
+        'nonce'   => wp_create_nonce('ssseo_admin_nonce'),
+        'ajaxurl' => admin_url('admin-ajax.php'),
+    ]);
+});
+
+// Transcript Metabox Scripts
+add_action('admin_enqueue_scripts', function ($hook) {
+    if (!in_array($hook, ['post.php', 'post-new.php'], true)) return;
 
     wp_enqueue_script(
         'ssseo-video-transcript',
-        plugins_url( 'assets/js/ssseo-transcript.js', __FILE__ ),
-        [ 'jquery' ],
+        plugin_dir_url(__FILE__) . 'assets/js/ssseo-transcript.js',
+        ['jquery'],
         '1.0',
         true
     );
 
-    wp_localize_script( 'ssseo-video-transcript', 'SSSEO_Transcript', [
-        'ajax_url' => admin_url( 'admin-ajax.php' ),
-        'nonce'    => wp_create_nonce( 'ssseo_generate_transcript_nonce' ),
-    ] );
-} );
+    wp_localize_script('ssseo-video-transcript', 'SSSEO_Transcript', [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce'    => wp_create_nonce('ssseo_generate_transcript_nonce'),
+    ]);
+});
 
-
-
-// Enqueue admin scripts and styles for SSSEO Tools
-
-add_action( 'admin_enqueue_scripts', 'ssseo_tools_enqueue_admin_assets' );
-
-function ssseo_tools_enqueue_admin_assets( $hook ) {
-
-    // Only load our assets on the SSSEO Tools main page
-
-    if ( $hook !== 'toplevel_page_ssseo-tools' ) {
-
-        return;
-
+// OpenAI Transcript Generation
+add_action('wp_ajax_ssseo_generate_transcript', function () {
+    if (!current_user_can('edit_posts') || empty($_POST['post_id'])) {
+        wp_send_json_error('Unauthorized or missing data.');
     }
 
+    $post_id = absint($_POST['post_id']);
+    $video_id = get_post_meta($post_id, '_ssseo_video_id', true);
+    $title = get_the_title($post_id);
+    $desc = get_the_excerpt($post_id);
 
+    if (!$video_id || !$title) {
+        wp_send_json_error('Missing video ID or title.');
+    }
 
-    wp_enqueue_media();
+    $prompt = "Generate a summarized transcript for the YouTube video titled:\n\n\"$title\"\n\nDescription:\n$desc\n\nRecap the video in a helpful summary.";
+    $api_key = get_option('ssseo_openai_api_key');
+    if (!$api_key) wp_send_json_error('Missing API key');
 
-
-
-    // Video blog JS
-
-    wp_enqueue_script(
-
-        'ssseo-videoblog-js',
-
-        plugin_dir_url( __FILE__ ) . 'assets/js/videoblog.js',
-
-        [ 'jquery' ],
-
-        '1.0',
-
-        true
-
-    );
-
-
-
-    // Localize for bulk.php inline script usage
-
-    wp_register_script( 'ssseo-admin-dummy', '' ); // dummy script handle for localization
-
-    wp_enqueue_script( 'ssseo-admin-dummy' );
-
-
-
-    wp_localize_script( 'ssseo-admin-dummy', 'ssseo_admin', [
-
-        'nonce'   => wp_create_nonce( 'ssseo_admin_nonce' ),
-
-        'ajaxurl' => admin_url( 'admin-ajax.php' ),
-
+    $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
+        'headers' => [
+            'Authorization' => 'Bearer ' . $api_key,
+            'Content-Type'  => 'application/json',
+        ],
+        'body' => json_encode([
+            'model'    => 'gpt-4',
+            'messages' => [
+                ['role' => 'system', 'content' => 'You are a helpful assistant summarizing YouTube videos.'],
+                ['role' => 'user',   'content' => $prompt],
+            ],
+            'max_tokens'  => 1000,
+            'temperature' => 0.7,
+        ]),
+        'timeout' => 30,
     ]);
 
-}
-
-// -------------------------
-
-// Enqueue AI tab script (only when tab=ai)
-
-// -------------------------
-
-
-add_action( 'admin_enqueue_scripts', 'ssseo_enqueue_ai_tab_script' );
-
-function ssseo_enqueue_ai_tab_script( $hook ) {
-
-    if ( false === strpos( $hook, 'ssseo-tools' ) ) {
-
-        return;
-
+    if (is_wp_error($response)) {
+        wp_send_json_error($response->get_error_message());
     }
 
-    if ( empty( $_GET['tab'] ) || $_GET['tab'] !== 'ai' ) {
-
-        return;
-
+    $data = json_decode(wp_remote_retrieve_body($response), true);
+    $summary = $data['choices'][0]['message']['content'] ?? '';
+    if (!$summary) {
+        wp_send_json_error('No content returned.');
     }
 
+    update_post_meta($post_id, '_ssseo_video_transcript', sanitize_textarea_field($summary));
+    wp_send_json_success($summary);
+});
 
+// LocalBusiness Schema Form Save
+add_action('admin_init', function () {
+    if (!isset($_POST['ssseo_localbusiness_nonce']) || !wp_verify_nonce($_POST['ssseo_localbusiness_nonce'], 'ssseo_localbusiness_save')) return;
+    if (!current_user_can('manage_options')) return;
 
-    $js_path = plugin_dir_path( __FILE__ ) . 'assets/js/ssseo-ai.js';
-
-    wp_enqueue_script(
-
-        'ssseo-ai-js',
-
-        plugin_dir_url( __FILE__ ) . 'assets/js/ssseo-ai.js',
-
-        [ 'jquery' ],
-
-        file_exists( $js_path ) ? filemtime( $js_path ) : false,
-
-        true
-
-    );
-
-
-
-    wp_localize_script( 'ssseo-ai-js', 'ssseoAI', [
-
-        'ajax_url' => admin_url( 'admin-ajax.php' ),
-
-        'nonce'    => wp_create_nonce( 'ssseo_ai_generate' ),
-
-    ] );
-
-}
-
-
-
-
-
-// -------------------------
-
-// Schema functions
-
-// -------------------------
-
-include_once plugin_dir_path( __FILE__ ) . 'schema-functions.php';
-
-
-
-
-
-// -------------------------
-
-// Handle LocalBusiness save
-
-// -------------------------
-
-add_action( 'admin_init', 'ssseo_handle_localbusiness_save' );
-
-function ssseo_handle_localbusiness_save() {
-
-    if (
-
-        ! isset( $_POST['ssseo_localbusiness_nonce'] ) ||
-
-        ! wp_verify_nonce( $_POST['ssseo_localbusiness_nonce'], 'ssseo_localbusiness_save' )
-
-    ) {
-
-        return;
-
+    $fields = ['name', 'phone', 'street', 'city', 'state', 'zip', 'country', 'latitude', 'longitude'];
+    foreach ($fields as $field) {
+        $key = 'ssseo_localbusiness_' . $field;
+        $val = sanitize_text_field($_POST[$key] ?? '');
+        update_option($key, $val);
     }
 
-    if ( ! current_user_can( 'manage_options' ) ) {
-
-        return;
-
-    }
-
-
-
-    $fields = [
-
-        'name', 'phone', 'street', 'city', 'state', 'zip',
-
-        'country', 'latitude', 'longitude'
-
-    ];
-
-
-
-    foreach ( $fields as $field ) {
-
-        $key   = 'ssseo_localbusiness_' . $field;
-
-        $value = isset( $_POST[ $key ] ) ? sanitize_text_field( $_POST[ $key ] ) : '';
-
-        update_option( $key, $value );
-
-    }
-
-
-
-    // Save opening hours
-
-    $hours_raw   = $_POST['ssseo_localbusiness_hours'] ?? [];
-
-    $hours_clean = [];
-
-    foreach ( $hours_raw as $row ) {
-
-        if ( ! empty( $row['day'] ) && ! empty( $row['open'] ) && ! empty( $row['close'] ) ) {
-
-            $hours_clean[] = [
-
-                'day'   => sanitize_text_field( $row['day'] ),
-
-                'open'  => sanitize_text_field( $row['open'] ),
-
-                'close' => sanitize_text_field( $row['close'] ),
-
-            ];
-
-        }
-
-    }
-
-    update_option( 'ssseo_localbusiness_hours', $hours_clean );
-
-
-
-    // Save selected pages
-
-    $selected_pages = isset( $_POST['ssseo_localbusiness_pages'] ) ? array_map( 'intval', (array) $_POST['ssseo_localbusiness_pages'] ) : [];
-
-    update_option( 'ssseo_localbusiness_pages', $selected_pages );
-
-}
-
-
-
-
-
-// -------------------------
-
-// Require module files
-
-// -------------------------
-
-require_once plugin_dir_path( __FILE__ ) . 'modules/cpt-registration.php';
-
-require_once plugin_dir_path( __FILE__ ) . 'modules/shortcodes.php';
-
-require_once plugin_dir_path( __FILE__ ) . 'modules/filters.php';
-
-require_once plugin_dir_path( __FILE__ ) . 'modules/map-as-featured.php';
-
-require_once plugin_dir_path( __FILE__ ) . 'modules/ai-functions.php';  // AJAX handlers for AI tab
-
-require_once plugin_dir_path( __FILE__ ) . 'inc/yoast-log-hooks.php';
-
-require_once plugin_dir_path(__FILE__) . 'inc/llms-output.php';
-
-
-
-require_once plugin_dir_path(__FILE__) . 'admin/ajax.php';
-
-
-
-
-
-// -------------------------
-
-// Enqueue Video Stylesheet
-
-// -------------------------
-
-add_action( 'wp_enqueue_scripts', 'ssseo_enqueue_video_styles' );
-
-function ssseo_enqueue_video_styles() {
-
-    $css_url = plugin_dir_url( __FILE__ ) . 'assets/css/ssseo-video.css';
-
-    $css_path = plugin_dir_path( __FILE__ ) . 'assets/css/ssseo-video.css';
-
-
-
-    wp_enqueue_style(
-
-        'ssseo-video-styles',
-
-        esc_url( $css_url ),
-
-        [],
-
-        file_exists( $css_path ) ? filemtime( $css_path ) : false
-
-    );
-
-}
-
-
-
-// 1a) Register the option in WP
-
-add_action( 'admin_init', function() {
-
-    register_setting( 'ssseo_videoblog', 'ssseo_enable_youtube', [
-
+    $hours = array_filter($_POST['ssseo_localbusiness_hours'] ?? [], function ($row) {
+        return !empty($row['day']) && !empty($row['open']) && !empty($row['close']);
+    });
+
+    update_option('ssseo_localbusiness_hours', array_map(function ($row) {
+        return [
+            'day'   => sanitize_text_field($row['day']),
+            'open'  => sanitize_text_field($row['open']),
+            'close' => sanitize_text_field($row['close']),
+        ];
+    }, $hours));
+
+    update_option('ssseo_localbusiness_pages', array_map('intval', $_POST['ssseo_localbusiness_pages'] ?? []));
+});
+
+// Register Video Settings Option
+add_action('admin_init', function () {
+    register_setting('ssseo_videoblog', 'ssseo_enable_youtube', [
         'type'              => 'boolean',
-
         'sanitize_callback' => 'rest_sanitize_boolean',
-
         'default'           => true,
+    ]);
+});
 
-    ] );
-
-} );
-
-
-
-add_action('admin_enqueue_scripts', 'ssseo_enqueue_admin_bootstrap');
-
-function ssseo_enqueue_admin_bootstrap($hook) {
-
-    // Optional: limit to your plugin settings page only
-
-    if (!isset($_GET['page']) || $_GET['page'] !== 'ssseo-tools') {
-
-        return;
-
-    }
-
-
-
-// Bootstrap 5.3+ via CDN
-
-    wp_enqueue_style(
-
-        'ssseo-bootstrap',
-
-        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
-
-        [],
-
-        '5.3.3'
-
-    );
-
-
-
-    wp_enqueue_script(
-
-        'ssseo-bootstrap',
-
-        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js',
-
-        [],
-
-        '5.3.3',
-
-        true
-
-    );
-
-}
-
-
-
-add_action('wp_ajax_ssseo_test_openai_key', 'ssseo_test_openai_key');
-
-add_action('wp_ajax_ssseo_test_maps_key', 'ssseo_test_maps_key');
-
-
-
-// Register metabox for Service Type
-
-add_action( 'add_meta_boxes', function() {
-
+// Register Metabox for Service Type
+add_action('add_meta_boxes', function () {
     add_meta_box(
-
         'ssseo_service_area_type',
-
         'Service Type (Schema.org)',
-
         'ssseo_render_service_area_type_meta_box',
-
         'service_area',
-
-        'side',
-
-        'default'
-
+        'side'
     );
+});
 
-} );
-
-
-
-function ssseo_render_service_area_type_meta_box( $post ) {
-
-    $value = get_post_meta( $post->ID, '_ssseo_service_area_type', true );
-
-
-
-    // Schema.org recognized service types
-
-    $service_types = [
-
+function ssseo_render_service_area_type_meta_box($post) {
+    $value = get_post_meta($post->ID, '_ssseo_service_area_type', true);
+    $types = [
         '' => '-- Select Service Type --',
-
-        'LegalService' => 'Legal Service',
-
-        'FinancialService' => 'Financial Service',
-
-        'FoodService' => 'Food Service',
-
-        'MedicalBusiness' => 'Medical Service',
-
+        'LegalService'             => 'Legal Service',
+        'FinancialService'         => 'Financial Service',
+        'FoodService'              => 'Food Service',
+        'MedicalBusiness'          => 'Medical Service',
         'HomeAndConstructionBusiness' => 'Home/Construction Service',
-
-        'EmergencyService' => 'Emergency Service',
-
-        'AutomotiveBusiness' => 'Automotive Service',
-
-        'ChildCare' => 'Child Care',
-
-        'CleaningService' => 'Cleaning Service',
-
-        'Electrician' => 'Electrician',
-
-        'Plumber' => 'Plumber',
-
-        'HVACBusiness' => 'HVAC Service',
-
-        'RoofingContractor' => 'Roofing Contractor',
-
-        'MovingCompany' => 'Moving Company',
-
-        'PestControl' => 'Pest Control',
-
+        'EmergencyService'         => 'Emergency Service',
+        'AutomotiveBusiness'       => 'Automotive Service',
+        'ChildCare'                => 'Child Care',
+        'CleaningService'          => 'Cleaning Service',
+        'Electrician'              => 'Electrician',
+        'Plumber'                  => 'Plumber',
+        'HVACBusiness'             => 'HVAC Service',
+        'RoofingContractor'        => 'Roofing Contractor',
+        'MovingCompany'            => 'Moving Company',
+        'PestControl'              => 'Pest Control',
     ];
-
-
 
     echo '<select name="ssseo_service_area_type" class="widefat">';
-
-    foreach ( $service_types as $key => $label ) {
-
-        $selected = selected( $value, $key, false );
-
-        echo "<option value='" . esc_attr( $key ) . "' $selected>" . esc_html( $label ) . "</option>";
-
+    foreach ($types as $key => $label) {
+        $selected = selected($value, $key, false);
+        echo "<option value='" . esc_attr($key) . "' $selected>" . esc_html($label) . "</option>";
     }
-
     echo '</select>';
-
 }
 
-
-
-// Save the selected service type
-
-add_action( 'save_post_service_area', function( $post_id ) {
-
-    if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
-
-    if ( ! current_user_can( 'edit_post', $post_id ) ) return;
-
-
-
-    if ( isset( $_POST['ssseo_service_area_type'] ) ) {
-
-        update_post_meta( $post_id, '_ssseo_service_area_type', sanitize_text_field( $_POST['ssseo_service_area_type'] ) );
-
+add_action('save_post_service_area', function ($post_id) {
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (!current_user_can('edit_post', $post_id)) return;
+    if (isset($_POST['ssseo_service_area_type'])) {
+        update_post_meta($post_id, '_ssseo_service_area_type', sanitize_text_field($_POST['ssseo_service_area_type']));
     }
+});
 
-} );
+add_action( 'admin_enqueue_scripts', function( $hook ) {
+	if ( strpos($hook, 'ssseo-tools') === false ) return;
+	if ( ! isset($_GET['tab']) || $_GET['tab'] !== 'ai' ) return;
 
-add_action( 'wp_ajax_ssseo_generate_transcript', 'ssseo_generate_transcript_handler' );
-function ssseo_generate_transcript_handler() {
-    if ( ! current_user_can( 'edit_posts' ) || empty( $_POST['post_id'] ) ) {
-        wp_send_json_error( 'Unauthorized or missing data.' );
-    }
+	wp_enqueue_script(
+		'ssseo-ai',
+		plugin_dir_url(__FILE__) . 'assets/js/ssseo-ai.js',
+		['jquery'],
+		filemtime( plugin_dir_path(__FILE__) . 'assets/js/ssseo-ai.js' ),
+		true
+	);
 
-    $post_id  = absint( $_POST['post_id'] );
-    $video_id = get_post_meta( $post_id, '_ssseo_video_id', true );
-    $title    = get_the_title( $post_id );
-    $desc     = get_the_excerpt( $post_id );
-
-    if ( ! $video_id || ! $title ) {
-        wp_send_json_error( 'Missing video ID or title.' );
-    }
-
-    // --- Build OpenAI prompt ---
-    $prompt = "Generate a summarized transcript for the YouTube video titled:\n\n"
-            . "\"$title\"\n\n"
-            . "Description:\n$desc\n\n"
-            . "If you know the topic or style, use that to help summarize as if you're recapping what was said in the video.";
-
-    // --- Call OpenAI (replace this with your OpenAI helper function if available) ---
-    $api_key = get_option( 'ssseo_openai_api_key' );
-    if ( ! $api_key ) wp_send_json_error( 'Missing API key' );
-
-   $response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', [
-    'headers' => [
-        'Authorization' => 'Bearer ' . $api_key,
-        'Content-Type'  => 'application/json',
-    ],
-    'body' => json_encode([
-        'model'    => 'gpt-4',
-        'messages' => [
-            [ 'role' => 'system', 'content' => 'You are a helpful assistant summarizing YouTube videos.' ],
-            [ 'role' => 'user',   'content' => $prompt ],
-        ],
-        'max_tokens'   => 1000,
-        'temperature'  => 0.7,
-    ]),
-    'timeout' => 30, // Increase to 30 seconds
-]);
-
-
-    if ( is_wp_error( $response ) ) {
-        wp_send_json_error( $response->get_error_message() );
-    }
-
-    $data = json_decode( wp_remote_retrieve_body( $response ), true );
-    $summary = $data['choices'][0]['message']['content'] ?? '';
-
-    if ( ! $summary ) {
-        wp_send_json_error( 'No content returned.' );
-    }
-
-    update_post_meta( $post_id, '_ssseo_video_transcript', sanitize_textarea_field( $summary ) );
-
-    wp_send_json_success( $summary );
-}
-
+	wp_localize_script('ssseo-ai', 'SSSEO_AI', [
+		'nonce'    => wp_create_nonce('ssseo_ai_generate'),
+		'ajax_url' => admin_url('admin-ajax.php'),
+	]);
+});
