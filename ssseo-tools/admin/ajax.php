@@ -525,5 +525,178 @@ function ssseo_get_youtube_transcript( $video_id ) {
     return '<p>' . implode( '</p><p>', $lines ) . '</p>';
 }
 
+add_action('wp_ajax_ssseo_get_youtube_captions', function () {
+  if (
+    ! current_user_can('edit_posts') ||
+    ! wp_verify_nonce($_POST['_wpnonce'], 'ssseo_admin_nonce') ||
+    empty($_POST['video_id'])
+  ) {
+    wp_send_json_error('Unauthorized or missing video ID.');
+  }
 
+  $video_id = sanitize_text_field($_POST['video_id']);
+  $caption_url = "https://video.google.com/timedtext?lang=en&kind=asr&v={$video_id}";
 
+  $caption_response = wp_remote_get($caption_url);
+  if (is_wp_error($caption_response)) {
+    wp_send_json_error('Request failed.');
+  }
+
+  $caption_body = wp_remote_retrieve_body($caption_response);
+  if (empty($caption_body)) {
+    wp_send_json_error('Transcript is empty.');
+  }
+
+  try {
+    $xml = simplexml_load_string($caption_body);
+    if (!$xml || empty($xml->text)) {
+      wp_send_json_error('Transcript is empty.');
+    }
+
+    $output = "Transcript (Auto-generated English)\n\n";
+    foreach ($xml->text as $line) {
+      $start = floatval($line['start']);
+      $time = gmdate("H:i:s", intval($start));
+      $text = trim((string) $line);
+      $output .= "[{$time}] {$text}\n";
+    }
+
+    wp_send_json_success(trim($output));
+  } catch (Exception $e) {
+    wp_send_json_error('Error parsing transcript XML.');
+  }
+});
+
+add_action('wp_ajax_ssseo_youtube_list_captions', function () {
+  if (!current_user_can('edit_posts') || empty($_POST['video_id'])) {
+    wp_send_json_error('Invalid request.');
+  }
+
+  $access_token = get_option('ssseo_google_access_token');
+  $video_id = sanitize_text_field($_POST['video_id']);
+
+  $url = "https://youtube.googleapis.com/youtube/v3/captions?part=snippet&videoId={$video_id}";
+  $response = wp_remote_get($url, [
+    'headers' => ['Authorization' => 'Bearer ' . $access_token]
+  ]);
+
+  if (is_wp_error($response)) {
+    wp_send_json_error('Failed to call API.');
+  }
+
+  $body = json_decode(wp_remote_retrieve_body($response), true);
+  $tracks = [];
+
+  foreach ($body['items'] ?? [] as $item) {
+    $tracks[] = [
+      'id'       => $item['id'],
+      'language' => $item['snippet']['language'],
+      'name'     => $item['snippet']['name'],
+      'kind'     => $item['snippet']['trackKind'] ?? 'standard',
+    ];
+  }
+
+  wp_send_json_success($tracks);
+});
+
+add_action('wp_ajax_ssseo_youtube_download_caption', function () {
+  if (!current_user_can('edit_posts') || empty($_POST['caption_id'])) {
+    wp_send_json_error('Missing caption ID.');
+  }
+
+  $access_token = get_option('ssseo_google_access_token');
+  $caption_id = sanitize_text_field($_POST['caption_id']);
+
+  $url = "https://youtube.googleapis.com/youtube/v3/captions/{$caption_id}?tfmt=sbv";
+
+  $response = wp_remote_get($url, [
+    'headers' => [
+      'Authorization' => 'Bearer ' . $access_token,
+      'Accept'        => 'application/sbv'
+    ]
+  ]);
+
+  if (is_wp_error($response)) {
+    wp_send_json_error('Failed to download caption.');
+  }
+
+  $text = wp_remote_retrieve_body($response);
+  wp_send_json_success(trim($text));
+});
+
+add_action('wp_ajax_ssseo_fetch_video_transcript', function () {
+	if (
+		! current_user_can('edit_posts') ||
+		empty($_POST['video_id']) ||
+		! wp_verify_nonce($_POST['nonce'], 'ssseo_generate_transcript_nonce')
+	) {
+		wp_send_json_error('Unauthorized or invalid request.');
+	}
+
+	$video_id = sanitize_text_field($_POST['video_id']);
+	$api_key  = get_option('ssseo_openai_api_key');
+	$yt_key   = get_option('ssseo_youtube_api_key');
+
+	if (empty($api_key)) {
+		wp_send_json_error('Missing OpenAI API key.');
+	}
+
+	// === Get YouTube title & description ===
+	$title = 'Untitled YouTube Video';
+	$desc  = 'This video explores the topic shown in the title. Please infer likely structure and summary.';
+
+	if (!empty($yt_key)) {
+		$yt_response = wp_remote_get("https://www.googleapis.com/youtube/v3/videos?part=snippet&id={$video_id}&key={$yt_key}");
+		if (!is_wp_error($yt_response)) {
+			$data = json_decode(wp_remote_retrieve_body($yt_response), true);
+			if (!empty($data['items'][0]['snippet'])) {
+				$title = sanitize_text_field($data['items'][0]['snippet']['title']);
+				$desc  = sanitize_textarea_field($data['items'][0]['snippet']['description']);
+			}
+		}
+	}
+
+	// === Build prompt using concatenation ===
+	$prompt  = "You are a skilled assistant that generates structured summaries of online videos.\n\n";
+	$prompt .= "Summarize this YouTube video using transcript-style logic. ";
+	$prompt .= "Infer plausible sections and structure if full captions are not available.\n\n";
+	$prompt .= "Title: " . $title . "\n";
+	$prompt .= "Description: " . $desc . "\n";
+	$prompt .= "Video ID: " . $video_id . "\n\n";
+	$prompt .= "Return clean HTML using <h3> for sections and <p> for summaries.";
+
+	// === Send to OpenAI ===
+	$response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
+		'headers' => [
+			'Authorization' => 'Bearer ' . $api_key,
+			'Content-Type'  => 'application/json',
+		],
+		'body' => json_encode([
+			'model'    => 'gpt-4',
+			'messages' => [
+				['role' => 'system', 'content' => 'You are a helpful assistant that summarizes YouTube videos.'],
+				['role' => 'user',   'content' => $prompt],
+			],
+			'max_tokens'  => 1200,
+			'temperature' => 0.7,
+		]),
+		'timeout' => 30,
+	]);
+
+	if (is_wp_error($response)) {
+		wp_send_json_error($response->get_error_message());
+	}
+
+	$data = json_decode(wp_remote_retrieve_body($response), true);
+	$summary = $data['choices'][0]['message']['content'] ?? '';
+
+	if (empty($summary)) {
+		wp_send_json_error('No content returned from OpenAI.');
+	}
+
+	// Return result + prompt
+	wp_send_json_success([
+		'output' => $summary,
+		'prompt' => $prompt
+	]);
+});

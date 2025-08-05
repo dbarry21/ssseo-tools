@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SSSEO Tools
  * Description: Modular plugin for SEO and content enhancements.
- * Version: 2.3.6
+ * Version: 2.4.0
  * Author: Dave Barry
  * Text Domain: ssseo
  */
@@ -245,18 +245,59 @@ add_action('save_post_service_area', function ($post_id) {
 
 add_action( 'admin_enqueue_scripts', function( $hook ) {
 	if ( strpos($hook, 'ssseo-tools') === false ) return;
-	if ( ! isset($_GET['tab']) || $_GET['tab'] !== 'ai' ) return;
 
+	// Global plugin assets
+	wp_enqueue_media();
+	wp_enqueue_style('ssseo-bootstrap', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css', [], '5.3.3');
+	wp_enqueue_script('ssseo-bootstrap', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js', [], '5.3.3', true);
+
+	// Always enqueue general admin JS
 	wp_enqueue_script(
-		'ssseo-ai',
-		plugin_dir_url(__FILE__) . 'assets/js/ssseo-ai.js',
+		'ssseo-admin-js',
+		plugin_dir_url(__FILE__) . 'assets/js/ssseo-admin.js',
 		['jquery'],
-		filemtime( plugin_dir_path(__FILE__) . 'assets/js/ssseo-ai.js' ),
+		filemtime(__DIR__ . '/assets/js/ssseo-admin.js'),
 		true
 	);
 
-	wp_localize_script('ssseo-ai', 'SSSEO_AI', [
-		'nonce'    => wp_create_nonce('ssseo_ai_generate'),
-		'ajax_url' => admin_url('admin-ajax.php'),
+	wp_localize_script('ssseo-admin-js', 'ssseo_admin', [
+		'nonce'   => wp_create_nonce('ssseo_admin_nonce'),
+		'ajaxurl' => admin_url('admin-ajax.php'),
 	]);
+
+	// --- Conditionally load AI tab JS only when tab=ai
+	if ( isset($_GET['tab']) && $_GET['tab'] === 'ai' ) {
+		wp_enqueue_script(
+			'ssseo-ai',
+			plugin_dir_url(__FILE__) . 'assets/js/ssseo-ai.js',
+			['jquery'],
+			filemtime(plugin_dir_path(__FILE__) . 'assets/js/ssseo-ai.js'),
+			true
+		);
+
+		wp_localize_script('ssseo-ai', 'SSSEO_AI', [
+			'nonce'          => wp_create_nonce('ssseo_ai_generate'),
+			'ajax_url'       => admin_url('admin-ajax.php'),
+			'default_type'   => 'post',
+			'posts_by_type'  => [],
+		]);
+	}
+
+	// --- Conditionally load transcript fetch JS for the Video ID tools subtab
+	if ( isset($_GET['tab'], $_GET['subtab']) && $_GET['tab'] === 'videoblog' && $_GET['subtab'] === 'videoid' ) {
+		wp_enqueue_script(
+			'ssseo-video-transcript',
+			plugin_dir_url(__FILE__) . 'assets/js/ssseo-transcript.js',
+			['jquery'],
+			'1.0',
+			true
+		);
+
+		wp_localize_script('ssseo-video-transcript', 'SSSEO_Transcript', [
+			'ajax_url' => admin_url('admin-ajax.php'),
+			'nonce'    => wp_create_nonce('ssseo_generate_transcript_nonce'),
+		]);
+	}
 });
+
+
