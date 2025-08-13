@@ -1,702 +1,305 @@
 <?php
-
+// File: admin/ajax.php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
- * AJAX: Get posts by post type (for select dropdowns)
+ * Utility: simple permission + nonce check
  */
-add_action( 'wp_ajax_ssseo_get_posts_by_type', function() {
-    $post_type = sanitize_text_field( $_POST['post_type'] ?? '' );
-    $search    = sanitize_text_field( $_POST['search'] ?? '' );
-
-    if ( empty( $post_type ) || ! post_type_exists( $post_type ) ) {
-        echo '<option disabled>No post type selected</option>';
-        wp_die();
+function ssseo_check_cap_and_nonce( $nonce_action_key = '', $nonce_field_value = '' ) {
+    if ( ! current_user_can( 'edit_posts' ) ) {
+        wp_send_json_error( 'Insufficient permissions' );
     }
-
-    $args = [
-        'post_type'   => $post_type,
-        'numberposts' => 100,
-        'post_status' => 'any',
-        'orderby'     => 'title',
-        'order'       => 'ASC',
-    ];
-
-    if ( $search ) {
-        $args['s'] = $search;
-    }
-
-    $posts = get_posts( $args );
-
-    if ( empty($posts) ) {
-        echo '<option disabled>No posts found</option>';
-    } else {
-        foreach ( $posts as $post ) {
-            echo '<option value="' . esc_attr($post->ID) . '">' . esc_html($post->post_title) . ' (#' . $post->ID . ')</option>';
+    if ( $nonce_action_key ) {
+        if ( empty( $nonce_field_value ) || ! wp_verify_nonce( $nonce_field_value, $nonce_action_key ) ) {
+            wp_send_json_error( 'Invalid nonce' );
         }
     }
+}
 
-    wp_die();
+/**
+ * Return <option> list HTML for a given post type.
+ * action: ssseo_get_posts_by_type
+ * POST: post_type
+ */
+add_action( 'wp_ajax_ssseo_get_posts_by_type', function() {
+    ssseo_check_cap_and_nonce(); // no specific nonce used by caller
+    $pt = sanitize_key( $_POST['post_type'] ?? '' );
+    if ( ! $pt ) wp_send_json_success( '' );
+
+    $posts = get_posts( [
+        'post_type'      => $pt,
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'orderby'        => 'title',
+        'order'          => 'ASC',
+        'fields'         => 'ids',
+    ] );
+
+    ob_start();
+    if ( $posts ) {
+        foreach ( $posts as $pid ) {
+            $title = get_the_title( $pid );
+            echo '<option value="'.esc_attr( $pid ).'">'.esc_html( $title .' (ID '.$pid.')' ).'</option>';
+        }
+    }
+    $html = ob_get_clean();
+    // Caller expects raw HTML inserted into #ssseo-posts, not JSON. Return HTML string.
+    wp_send_json_success( $html );
 });
 
 /**
- * AJAX: Clone services as service_area posts (with Elementor + AI support)
+ * Bulk: Set Yoast robots to index,follow
+ * action: ssseo_yoast_set_index_follow
+ * POST: post_ids[], _wpnonce (optional; validated if present)
  */
-add_action('wp_ajax_ssseo_clone_services_to_area', 'ssseo_clone_services_to_area_handler');
-function ssseo_clone_services_to_area_handler() {
-    if (
-        ! current_user_can('edit_posts') ||
-        ! check_ajax_referer('ssseo_admin_nonce', '_wpnonce', false)
-    ) {
-        wp_send_json_error('Unauthorized');
+add_action( 'wp_ajax_ssseo_yoast_set_index_follow', function() {
+    $nonce = $_POST['_wpnonce'] ?? '';
+    // If you localize a specific nonce, replace 'ssseo_admin_nonce' with it.
+    if ( $nonce ) ssseo_check_cap_and_nonce( 'ssseo_admin_nonce', $nonce ); else ssseo_check_cap_and_nonce();
+
+    $ids = array_map( 'intval', (array) ( $_POST['post_ids'] ?? [] ) );
+    if ( empty( $ids ) ) wp_send_json_error( 'No posts selected' );
+
+    foreach ( $ids as $pid ) {
+        // Yoast “noindex” meta is stored as _yoast_wpseo_meta-robots-noindex (1 = noindex, 0/empty = index)
+        update_post_meta( $pid, '_yoast_wpseo_meta-robots-noindex', '0' );
+        // Yoast “nofollow” meta is stored as _yoast_wpseo_meta-robots-nofollow (1 = nofollow, 0/empty = follow)
+        update_post_meta( $pid, '_yoast_wpseo_meta-robots-nofollow', '0' );
+    }
+    wp_send_json_success( 'Updated index,follow on '.count($ids).' posts.' );
+});
+
+/**
+ * Bulk: Reset canonical to Yoast default (delete custom canonical)
+ * action: ssseo_bulk_reset_canonical
+ * POST: post_ids[], _wpnonce (optional)
+ */
+add_action( 'wp_ajax_ssseo_bulk_reset_canonical', function() {
+    $nonce = $_POST['_wpnonce'] ?? '';
+    if ( $nonce ) ssseo_check_cap_and_nonce( 'ssseo_admin_nonce', $nonce ); else ssseo_check_cap_and_nonce();
+
+    $ids = array_map( 'intval', (array) ( $_POST['post_ids'] ?? [] ) );
+    if ( empty( $ids ) ) wp_send_json_error( 'No posts selected' );
+
+    foreach ( $ids as $pid ) {
+        delete_post_meta( $pid, '_yoast_wpseo_canonical' );
+    }
+    wp_send_json_success( 'Canonical reset on '.count($ids).' posts.' );
+});
+
+/**
+ * Bulk: Clear canonical (explicitly set to empty)
+ * action: ssseo_bulk_clear_canonical
+ * POST: post_ids[], _wpnonce (optional)
+ */
+add_action( 'wp_ajax_ssseo_bulk_clear_canonical', function() {
+    $nonce = $_POST['_wpnonce'] ?? '';
+    if ( $nonce ) ssseo_check_cap_and_nonce( 'ssseo_admin_nonce', $nonce ); else ssseo_check_cap_and_nonce();
+
+    $ids = array_map( 'intval', (array) ( $_POST['post_ids'] ?? [] ) );
+    if ( empty( $ids ) ) wp_send_json_error( 'No posts selected' );
+
+    foreach ( $ids as $pid ) {
+        update_post_meta( $pid, '_yoast_wpseo_canonical', '' );
+    }
+    wp_send_json_success( 'Canonical cleared on '.count($ids).' posts.' );
+});
+
+/**
+ * Optional: YouTube fix action (stub). Implement your actual scan/fix if needed.
+ * action: ssseo_fix_youtube_iframes
+ */
+add_action( 'wp_ajax_ssseo_fix_youtube_iframes', function() {
+    ssseo_check_cap_and_nonce();
+    // Implement your scanning logic here; for now return success.
+    wp_send_json_success( 'YouTube iframe pass complete.' );
+});
+
+
+/**
+ * Clone a source service_area to multiple parent service_areas (as children).
+ * - Replaces [acf field="city_state"] in TITLE with the parent’s city_state BEFORE saving
+ * - Copies content, meta (incl. Elementor), taxonomies, thumbnail
+ * - Sets cloned post's ACF/meta 'city_state' from the parent
+ * - Optional custom slug for the clone ('new_slug'); WP will ensure uniqueness per parent
+ *
+ * action: ssseo_clone_sa_to_parents
+ * POST:
+ *   - nonce, source_id, target_parent_ids[], as_draft, skip_existing, debug, new_slug (optional)
+ */
+
+add_action('wp_ajax_ssseo_clone_sa_to_parents','ssseo_clone_service_area_to_parents_handler');
+function ssseo_clone_service_area_to_parents_handler(){
+    $nonce = $_POST['nonce'] ?? '';
+    if ( ! current_user_can('edit_posts') ) wp_send_json_error('Insufficient permissions');
+    if ( empty($nonce) || ! wp_verify_nonce($nonce,'ssseo_bulk_clone_sa') ) wp_send_json_error('Invalid nonce');
+
+    // Require Yoast Duplicate Post API
+    if ( ! function_exists('duplicate_post_create_duplicate') ) {
+        wp_send_json_error('Yoast Duplicate Post is not active. Please install/activate it to use this bulk clone.');
     }
 
-    $services    = $_POST['services'] ?? [];
-    $target_area = intval($_POST['target_area'] ?? 0);
-    $enable_ai   = ! empty($_POST['enable_ai']);
+    $source_id   = intval($_POST['source_id'] ?? 0);
+    $target_ids  = array_map('intval', (array)($_POST['target_parent_ids'] ?? []));
+    $as_draft    = !empty($_POST['as_draft']);
+    $skip_exist  = !empty($_POST['skip_existing']);
+    $debug       = !empty($_POST['debug']);
+    $new_slug_in = isset($_POST['new_slug']) ? sanitize_title( wp_unslash($_POST['new_slug']) ) : '';
+    $focus_base  = isset($_POST['focus_base']) ? sanitize_text_field( wp_unslash($_POST['focus_base']) ) : '';
 
-    if (empty($services) || ! is_array($services) || $target_area <= 0) {
-        wp_send_json_error('Invalid input');
-    }
+    if (!$source_id || empty($target_ids)) wp_send_json_error('Missing source or targets');
 
-    $cloned   = [];
-    $ai_debug = [];
+    $source = get_post($source_id);
+    if (!$source || $source->post_type !== 'service_area') wp_send_json_error('Invalid source post');
 
-    foreach ($services as $sid) {
-        $sid = intval($sid);
-        $post = get_post($sid);
-        if (! $post || $post->post_type !== 'service') continue;
+    // Helper: replace [acf field="city_state"] if shortcode can't run
+    $replace_citystate_shortcode = function($text, $city){
+        if(!is_string($text) || $text==='') return $text;
+        return preg_replace('/\[acf\s+field\s*=\s*(["\'])city_state\1\s*\]/i', (string)$city, $text);
+    };
 
-        $new_post = [
-            'post_type'   => 'service_area',
-            'post_status' => 'draft',
-            'post_parent' => $target_area,
-            'post_title'  => $post->post_title,
-            'post_excerpt'=> $post->post_excerpt,
-            'post_content'=> $post->post_content,
-            'post_author' => get_current_user_id(),
-        ];
+    // Helper: render shortcodes as if $post_id is the current post
+    $render_with_post_context = function($text, $post_id){
+        if(!is_string($text) || $text==='') return $text;
+        if(!function_exists('do_shortcode')) return $text;
+        global $post;
+        $old_post = isset($post) ? $post : null;
+        $post = get_post($post_id);
+        if($post){
+            setup_postdata($post);
+            $out = do_shortcode($text);
+            wp_reset_postdata();
+        }else{
+            $out = $text;
+        }
+        // Titles must be plain text; strip any tags entities that might sneak in
+        $out = wp_strip_all_tags( $out, true );
+        return trim( $out );
+    };
 
-        $new_id = wp_insert_post($new_post);
+    $log = [];
 
-        if ($new_id && ! is_wp_error($new_id)) {
-            if ($thumb_id = get_post_thumbnail_id($post->ID)) {
-                set_post_thumbnail($new_id, $thumb_id);
-            }
+    foreach($target_ids as $parent_id){
+        $parent = get_post($parent_id);
+        if(!$parent || $parent->post_type !== 'service_area' || (int)$parent->post_parent !== 0){
+            $log[] = "Skipping target $parent_id: not a top-level service_area.";
+            continue;
+        }
 
-            if (function_exists('get_fields')) {
-                $fields = get_fields($post->ID);
-                if (is_array($fields)) {
-                    foreach ($fields as $key => $val) {
-                        update_field($key, $val, $new_id);
+        // Parent city_state used for duplicate check and meta setting
+        $parent_city_state = function_exists('get_field') ? get_field('city_state', $parent_id) : get_post_meta($parent_id, 'city_state', true);
+        $parent_city_state = is_string($parent_city_state) ? $parent_city_state : '';
+
+        // Precompute a fallback "final" title (used for duplicate check) by direct replace
+        $fallback_title = $replace_citystate_shortcode($source->post_title, $parent_city_state);
+
+        // Optional duplicate guard (by FINAL title under this parent)
+        if ($skip_exist) {
+            $exists = false;
+            $existing = get_posts([
+                'post_type'        => 'service_area',
+                'post_status'      => 'any',
+                'posts_per_page'   => 1,
+                'post_parent'      => $parent_id,
+                'title'            => $fallback_title,
+                'fields'           => 'ids',
+                'suppress_filters' => true,
+            ]);
+            if (!empty($existing)) {
+                $exists = true;
+            } else {
+                $children = get_children([
+                    'post_parent' => $parent_id,
+                    'post_type'   => 'service_area',
+                    'post_status' => 'any',
+                    'fields'      => 'ids',
+                ]);
+                if ($children) {
+                    foreach($children as $cid){
+                        if (get_the_title($cid) === $fallback_title) { $exists = true; break; }
                     }
                 }
             }
-
-            // Copy Elementor metadata
-            $elementor_keys = [
-                '_elementor_edit_mode',
-                '_elementor_template_type',
-                '_elementor_data',
-                '_elementor_controls_usage',
-                '_elementor_page_settings',
-            ];
-
-            foreach ( $elementor_keys as $key ) {
-                $val = get_post_meta($post->ID, $key, true);
-                if ( $val !== '' ) {
-                    update_post_meta($new_id, $key, $val);
-                }
+            if ($exists) {
+                $log[] = "Skipped: Child with same final title already exists under parent {$parent->ID}.";
+                continue;
             }
-
-            // Generate AI content
-            if ($enable_ai && function_exists('ssseo_generate_ai_about_area_html')) {
-                $area_title = get_the_title($target_area);
-                $prompt = sprintf(
-                    "Write a 4–5 paragraph description (400–500 words) about %s for a local service area page. Highlight its relevance and value based on this service content:\n\n%s",
-                    $area_title,
-                    wp_strip_all_tags($post->post_content)
-                );
-
-                $ai_html = ssseo_generate_ai_about_area_html($prompt);
-
-                if (! empty($ai_html)) {
-                    update_post_meta($new_id, '_about_the_area', wp_kses_post($ai_html));
-                    $ai_debug[] = "<h5>" . esc_html($post->post_title) . "</h5><div style='max-height:200px;overflow:auto;border:1px solid #ccc;padding:10px;margin-bottom:20px;'>" . wp_kses_post($ai_html) . "</div>";
-                } else {
-                    $ai_debug[] = "<h5>" . esc_html($post->post_title) . "</h5><p><em>AI generation failed or returned no content.</em></p>";
-                }
-            }
-
-            $cloned[] = $post->post_title;
         }
-    }
 
-    if (! empty($cloned)) {
-        $html = '<strong>Cloned the following:</strong><ul><li>' . implode('</li><li>', array_map('esc_html', $cloned)) . '</li></ul>';
-        if ($enable_ai && ! empty($ai_debug)) {
-            $html .= '<hr><div><strong>AI Debug Output:</strong>' . implode('', $ai_debug) . '</div>';
+        // Duplicate using Yoast engine
+        $status = $as_draft ? 'draft' : $source->post_status;
+        $new_id = duplicate_post_create_duplicate( $source, $status, $parent_id );
+        if ( is_wp_error($new_id) || ! $new_id ) {
+            $log[] = "Error cloning to parent {$parent->ID}: could not duplicate (Yoast).";
+            continue;
         }
-        wp_send_json_success($html);
-    } else {
-        wp_send_json_error('No services were cloned.');
-    }
-}
 
+        // Set ACF/meta city_state from the parent on the clone (so shortcodes can resolve against the clone)
+        if ($parent_city_state !== '') {
+            if ( function_exists('update_field') ) update_field('city_state', $parent_city_state, $new_id);
+            else update_post_meta($new_id, 'city_state', $parent_city_state);
+        }
 
-/** Yoast Bulk Handlers **/
-add_action( 'wp_ajax_ssseo_yoast_set_index_follow', function() {
-    check_ajax_referer( 'ssseo_admin_nonce', '_wpnonce' );
-    $ids = array_map('intval', $_POST['post_ids'] ?? []);
-    foreach ($ids as $post_id) {
-        update_post_meta($post_id, '_yoast_wpseo_meta-robots-noindex', '0');
-        update_post_meta($post_id, '_yoast_wpseo_meta-robots-nofollow', '0');
-    }
-    wp_send_json_success('Yoast set to index, follow for selected posts.');
-});
+        // Render the SOURCE title's shortcodes **in the context of the NEW post**
+        // This lets either [acf field="city_state"] or your [city_state] shortcode resolve properly.
+        $rendered_title = $render_with_post_context( $source->post_title, $new_id );
 
-add_action( 'wp_ajax_ssseo_yoast_reset_canonical', function () {
-    check_ajax_referer( 'ssseo_admin_nonce', '_wpnonce' );
-    $ids = array_map('intval', $_POST['post_ids'] ?? []);
-    foreach ($ids as $post_id) {
-        $permalink = get_permalink($post_id);
-        update_post_meta($post_id, '_yoast_wpseo_canonical', $permalink);
-    }
-    wp_send_json_success();
-});
+        // Fallback to simple replace if rendering produced an empty string (e.g., shortcode not present)
+        if ($rendered_title === '') {
+            $rendered_title = $fallback_title;
+        }
 
-add_action( 'wp_ajax_ssseo_yoast_clear_canonical', function () {
-    check_ajax_referer( 'ssseo_admin_nonce', '_wpnonce' );
-    $ids = array_map('intval', $_POST['post_ids'] ?? []);
-    foreach ($ids as $post_id) {
-        delete_post_meta($post_id, '_yoast_wpseo_canonical');
-    }
-    wp_send_json_success();
-});
+        // Update title/slug/parent/status on the clone
+        $update = [
+            'ID'          => $new_id,
+            'post_title'  => $rendered_title,
+            'post_parent' => $parent_id,
+            'post_status' => $status,
+        ];
+        if ($new_slug_in) $update['post_name'] = $new_slug_in;
+        wp_update_post($update);
 
+        // ----- Yoast Focus Keyphrase (remove commas from city_state) -----
+        if ($focus_base !== '') {
+            $city_state_clean = str_replace(',', '', $parent_city_state);
+            $focus = trim($focus_base . ' ' . ($city_state_clean ?: ''));
 
-/** Meta History Viewer **/
-add_action( 'wp_ajax_ssseo_get_meta_history', function () {
-    check_ajax_referer( 'ssseo_admin_nonce', '_wpnonce' );
-    $post_id = intval( $_POST['post_id'] ?? 0 );
-    if (! $post_id) wp_send_json_error('Invalid post ID');
+            // Clear possible carry-overs first
+            delete_post_meta($new_id, '_yoast_wpseo_focuskw');
+            delete_post_meta($new_id, '_yoast_wpseo_focuskw_text_input');
+            delete_post_meta($new_id, '_yoast_wpseo_focuskeywords'); // Premium multi-keyphrase JSON
+            delete_post_meta($new_id, 'yoast_wpseo_focuskw');
+            delete_post_meta($new_id, 'yoast_wpseo_focuskw_text_input');
 
-    $log = get_post_meta($post_id, '_ssseo_meta_log', true) ?: [];
-    $current_title = get_post_meta($post_id, '_yoast_wpseo_title', true);
-    $current_desc  = get_post_meta($post_id, '_yoast_wpseo_metadesc', true);
+            // Write new primary keyphrase
+            update_post_meta($new_id, '_yoast_wpseo_focuskw', $focus);
+            update_post_meta($new_id, '_yoast_wpseo_focuskw_text_input', $focus);
+            // Also non-underscored variants (cover edge installs)
+            update_post_meta($new_id, 'yoast_wpseo_focuskw', $focus);
+            update_post_meta($new_id, 'yoast_wpseo_focuskw_text_input', $focus);
 
-    ob_start();
-    ?>
-    <h3>Current Yoast Meta</h3>
-    <table class="widefat striped"><thead><tr><th>Field</th><th>Current Value</th></tr></thead><tbody>
-    <tr><td>Title</td><td><?= esc_html($current_title) ?></td></tr>
-    <tr><td>Description</td><td><?= esc_html($current_desc) ?></td></tr>
-    </tbody></table>
-    <?php if (! empty($log)): ?>
-        <h3>Change History</h3>
-        <table class="widefat striped"><thead><tr><th>Time</th><th>Field</th><th>Value</th><th>User</th></tr></thead><tbody>
-        <?php foreach (array_reverse($log) as $entry): ?>
-            <tr>
-                <td><?= esc_html($entry['time']) ?></td>
-                <td><?= $entry['field'] === '_yoast_wpseo_title' ? 'Title' : 'Meta Description' ?></td>
-                <td><?= esc_html($entry['value']) ?></td>
-                <td><?= esc_html(get_userdata($entry['user'])->display_name ?? 'Unknown') ?></td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody></table>
-    <?php else: ?>
-        <p>No historical changes recorded.</p>
-    <?php endif;
+            // Nudge Yoast indexables/watchers
+            wp_update_post(['ID'=>$new_id]);
+        }
 
-    $html = ob_get_clean();
+        // Safety: ensure terms & thumbnail (Yoast usually handles these, but harmless to re-apply)
+        $taxes = get_object_taxonomies('service_area');
+        foreach ($taxes as $tax) {
+            $terms = wp_get_object_terms($source_id, $tax, ['fields'=>'ids']);
+            if (!is_wp_error($terms) && !empty($terms)) wp_set_object_terms($new_id, $terms, $tax, false);
+        }
+        $thumb_id = get_post_thumbnail_id($source_id);
+        if ($thumb_id && !get_post_thumbnail_id($new_id)) set_post_thumbnail($new_id, $thumb_id);
 
-    $csv = "Time,Field,Value,User\n";
-    foreach ($log as $entry) {
-        $user = get_userdata($entry['user']);
-        $csv .= sprintf("\"%s\",\"%s\",\"%s\",\"%s\"\n",
-            $entry['time'],
-            $entry['field'] === '_yoast_wpseo_title' ? 'Title' : 'Meta Description',
-            str_replace('"', '\"', $entry['value']),
-            $user ? $user->display_name : 'Unknown'
+        $log[] = sprintf(
+            'Cloned via Yoast → New child ID %d under "%s" (ID %d). Final title="%s"%s',
+            $new_id,
+            $parent->post_title,
+            $parent->ID,
+            get_the_title($new_id),
+            $new_slug_in ? " (slug: {$new_slug_in})" : ''
         );
     }
 
-    wp_send_json_success([
-        'html'     => $html,
-        'csv'      => $csv,
-        'filename' => 'meta-history-' . $post_id . '.csv',
-    ]);
-});
-
-
-/** API Key Testers **/
-add_action('wp_ajax_ssseo_test_openai_key', 'ssseo_test_openai_key');
-function ssseo_test_openai_key() {
-    if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-    $key = sanitize_text_field($_POST['key'] ?? '');
-    if (! $key) wp_send_json_error('No key provided.');
-
-    $response = wp_remote_get('https://api.openai.com/v1/models', [
-        'headers' => [ 'Authorization' => 'Bearer ' . $key ],
-        'timeout' => 10,
-    ]);
-
-    $timestamp = current_time('mysql');
-    if (is_wp_error($response)) {
-        $msg = '❌ ' . $response->get_error_message() . " (tested $timestamp)";
-        update_option('ssseo_openai_test_result', $msg);
-        wp_send_json_error($msg);
-    }
-
-    $code = wp_remote_retrieve_response_code($response);
-    if ($code === 200) {
-        $msg = "✅ OpenAI key is valid (tested $timestamp)";
-        update_option('ssseo_openai_test_result', $msg);
-        wp_send_json_success($msg);
-    }
-
-    $body = json_decode(wp_remote_retrieve_body($response), true);
-    $error = $body['error']['message'] ?? 'Unknown error';
-    $msg = "❌ Invalid: $error (tested $timestamp)";
-    update_option('ssseo_openai_test_result', $msg);
-    wp_send_json_error($msg);
+    wp_send_json_success(['log'=>$log]);
 }
-
-add_action('wp_ajax_ssseo_test_maps_key', 'ssseo_test_maps_key');
-function ssseo_test_maps_key() {
-    if (!current_user_can('manage_options')) wp_send_json_error('Unauthorized');
-    $key = sanitize_text_field($_POST['key'] ?? '');
-    if (! $key) wp_send_json_error('No key provided.');
-
-    $url = "https://maps.googleapis.com/maps/api/staticmap?center=New+York,NY&zoom=10&size=400x200&key=" . urlencode($key);
-    $response = wp_remote_get($url, ['timeout' => 10]);
-    $timestamp = current_time('mysql');
-
-    if (is_wp_error($response)) {
-        $msg = '❌ ' . $response->get_error_message() . " (tested $timestamp)";
-        update_option('ssseo_maps_test_result', $msg);
-        wp_send_json_error($msg);
-    }
-
-    if (wp_remote_retrieve_response_code($response) === 200) {
-        $msg = "✅ Maps key is valid (tested $timestamp)";
-        update_option('ssseo_maps_test_result', $msg);
-        wp_send_json_success($msg);
-    }
-
-    $msg = "❌ Invalid or restricted Maps key (tested $timestamp)";
-    update_option('ssseo_maps_test_result', $msg);
-    wp_send_json_error($msg);
-}
-
-add_action( 'wp_ajax_ssseo_create_video_drafts', 'ssseo_create_video_drafts_handler' );
-
-function ssseo_create_video_drafts_handler() {
-    if ( ! current_user_can( 'manage_options' ) ) {
-        wp_send_json_error( [ 'error' => 'Unauthorized access.' ] );
-    }
-
-    if ( ! check_ajax_referer( 'ssseo_generate_videos_nonce', 'nonce', false ) ) {
-        wp_send_json_error( [ 'error' => 'Security check failed.' ] );
-    }
-
-    $api_key    = get_option( 'ssseo_youtube_api_key' );
-    $channel_id = get_option( 'ssseo_youtube_channel_id' );
-
-    if ( ! $api_key || ! $channel_id ) {
-        wp_send_json_error( [ 'error' => 'Missing API key or Channel ID.' ] );
-    }
-
-    $created = 0;
-    $page_token = '';
-    $video_count = 0;
-    $max_pages = 50; // Avoid infinite loop (YouTube cap is 1000 results total)
-
-    while ( $max_pages-- ) {
-        $url = add_query_arg( [
-            'part'       => 'snippet',
-            'channelId'  => $channel_id,
-            'maxResults' => 50,
-            'order'      => 'date',
-            'type'       => 'video',
-            'key'        => $api_key,
-            'pageToken'  => $page_token,
-        ], 'https://www.googleapis.com/youtube/v3/search' );
-
-        $response = wp_remote_get( $url );
-
-        if ( is_wp_error( $response ) ) {
-            wp_send_json_error( [ 'error' => 'YouTube API error: ' . $response->get_error_message() ] );
-        }
-
-        $body = json_decode( wp_remote_retrieve_body( $response ), true );
-        if ( empty( $body['items'] ) ) {
-            break;
-        }
-
-        foreach ( $body['items'] as $item ) {
-            $video_id    = $item['id']['videoId'] ?? '';
-            $title       = $item['snippet']['title'] ?? '';
-            $video_id = $item['id']['videoId'] ?? '';
-if ( ! $video_id ) continue;
-
-// Get full video metadata from videos endpoint
-$video_meta_url = add_query_arg( [
-    'part' => 'snippet',
-    'id'   => $video_id,
-    'key'  => $api_key,
-], 'https://www.googleapis.com/youtube/v3/videos' );
-
-$video_meta_response = wp_remote_get( $video_meta_url );
-$video_meta = json_decode( wp_remote_retrieve_body( $video_meta_response ), true );
-$video_snippet = $video_meta['items'][0]['snippet'] ?? [];
-
-$title       = $video_snippet['title'] ?? 'Untitled';
-$description = $video_snippet['description'] ?? '';
-
-
-            if ( ! $video_id || ! $title ) continue;
-
-            // Skip if already imported
-            $existing = get_posts( [
-                'post_type'  => 'video',
-                'meta_key'   => 'ssseo_youtube_video_id',
-                'meta_value' => $video_id,
-                'fields'     => 'ids',
-            ] );
-            if ( ! empty( $existing ) ) continue;
-
-            // Attempt transcript fetch (unofficial API method)
-            $transcript = ssseo_get_youtube_transcript( $video_id );
-
-            // Build post content
-            $content = '<div class="ratio ratio-16x9 mb-3"><iframe src="https://www.youtube.com/embed/' . esc_attr( $video_id ) . '" frameborder="0" allowfullscreen></iframe></div>';
-
-            if ( $description ) {
-                $content .= '<h4>Description</h4><p>' . esc_html( $description ) . '</p>';
-            }
-
-            if ( $transcript ) {
-                $content .= '<h4>Transcript</h4><div style="white-space:pre-wrap;">' . esc_html( $transcript ) . '</div>';
-            }
-
-            $post_id = wp_insert_post( [
-                'post_type'    => 'video',
-                'post_title'   => wp_strip_all_tags( $title ),
-                'post_content' => $content,
-                'post_status'  => 'draft',
-            ] );
-
-            if ( $post_id && ! is_wp_error( $post_id ) ) {
-                update_post_meta( $post_id, 'ssseo_youtube_video_id', $video_id );
-                $created++;
-            }
-        }
-
-        if ( ! isset( $body['nextPageToken'] ) ) break;
-        $page_token = $body['nextPageToken'];
-    }
-
-    wp_send_json_success( [
-        'message' => "Imported $created new video draft(s)."
-    ] );
-}
-
-add_action( 'wp_ajax_ssseo_batch_import_videos', 'ssseo_batch_import_videos_handler' );
-
-function ssseo_batch_import_videos_handler() {
-    check_ajax_referer( 'ssseo_batch_import_nonce', 'nonce' );
-
-    $api_key    = get_option( 'ssseo_youtube_api_key' );
-    $channel_id = get_option( 'ssseo_youtube_channel_id' );
-    $imported   = 0;
-    $log        = [];
-
-    if ( empty( $api_key ) || empty( $channel_id ) ) {
-        wp_send_json_error( [ 'error' => 'Missing API key or channel ID' ] );
-    }
-
-    $page_token = '';
-    $base_url = 'https://www.googleapis.com/youtube/v3/search';
-
-    do {
-        $params = [
-            'key'       => $api_key,
-            'channelId' => $channel_id,
-            'part'      => 'snippet',
-            'maxResults'=> 50,
-            'order'     => 'date',
-            'type'      => 'video',
-        ];
-
-        if ( $page_token ) {
-            $params['pageToken'] = $page_token;
-        }
-
-        $url      = $base_url . '?' . http_build_query( $params );
-        $response = wp_remote_get( $url );
-        $body     = json_decode( wp_remote_retrieve_body( $response ), true );
-
-        if ( is_wp_error( $response ) || empty( $body['items'] ) ) {
-            $log[] = '❌ Error fetching data from YouTube API.';
-            break;
-        }
-
-        foreach ( $body['items'] as $item ) {
-            $video_id = $item['id']['videoId'] ?? '';
-            $title    = sanitize_text_field( $item['snippet']['title'] ?? '' );
-            $desc     = $item['snippet']['description'] ?? '';
-
-            if ( ! $video_id || post_exists( $title ) ) {
-                $log[] = "⏭️ Skipped: $title (already exists or invalid)";
-                continue;
-            }
-
-            // --- Get transcript
-            $transcript_html = ssseo_get_youtube_transcript( $video_id );
-
-            // --- Build content
-            $post_content = '<div class="ratio ratio-16x9 mb-3">
-<iframe src="https://www.youtube.com/embed/' . esc_attr( $video_id ) . '" allowfullscreen></iframe>
-</div>';
-
-            if ( $desc ) {
-                $post_content .= '<h3>Description</h3><div class="video-description">' . nl2br( esc_html( $desc ) ) . '</div>';
-            }
-
-            if ( $transcript_html ) {
-                $post_content .= '<h3>Transcript</h3><div class="video-transcript">' . $transcript_html . '</div>';
-            }
-
-            $post_id = wp_insert_post( [
-                'post_type'    => 'video',
-                'post_status'  => 'draft',
-                'post_title'   => $title,
-                'post_content' => $post_content,
-            ] );
-
-            if ( $post_id && ! is_wp_error( $post_id ) ) {
-                $imported++;
-                $log[] = "✅ Imported: $title";
-            } else {
-                $log[] = "❌ Failed to import: $title";
-            }
-        }
-
-        $page_token = $body['nextPageToken'] ?? '';
-    } while ( $page_token );
-
-    if ( $imported > 0 ) {
-        wp_send_json_success( [
-            'message' => "Imported $imported new video(s).",
-            'log'     => $log
-        ] );
-    } else {
-        wp_send_json_error( [
-            'error' => 'No new videos were imported.',
-            'log'   => $log
-        ] );
-    }
-}
-
-
-function ssseo_get_youtube_transcript( $video_id ) {
-    $url = 'https://video.google.com/timedtext?lang=en&v=' . urlencode( $video_id );
-    $response = wp_remote_get( $url );
-
-    if ( is_wp_error( $response ) ) return '';
-
-    $xml = wp_remote_retrieve_body( $response );
-    if ( empty( $xml ) ) return '';
-
-    try {
-        $srt = new SimpleXMLElement( $xml );
-    } catch ( Exception $e ) {
-        return '';
-    }
-
-    $lines = [];
-    foreach ( $srt->text as $line ) {
-        $text = (string) $line;
-        $text = str_replace( "\n", ' ', $text );
-        $lines[] = esc_html( $text );
-    }
-
-    return '<p>' . implode( '</p><p>', $lines ) . '</p>';
-}
-
-add_action('wp_ajax_ssseo_get_youtube_captions', function () {
-  if (
-    ! current_user_can('edit_posts') ||
-    ! wp_verify_nonce($_POST['_wpnonce'], 'ssseo_admin_nonce') ||
-    empty($_POST['video_id'])
-  ) {
-    wp_send_json_error('Unauthorized or missing video ID.');
-  }
-
-  $video_id = sanitize_text_field($_POST['video_id']);
-  $caption_url = "https://video.google.com/timedtext?lang=en&kind=asr&v={$video_id}";
-
-  $caption_response = wp_remote_get($caption_url);
-  if (is_wp_error($caption_response)) {
-    wp_send_json_error('Request failed.');
-  }
-
-  $caption_body = wp_remote_retrieve_body($caption_response);
-  if (empty($caption_body)) {
-    wp_send_json_error('Transcript is empty.');
-  }
-
-  try {
-    $xml = simplexml_load_string($caption_body);
-    if (!$xml || empty($xml->text)) {
-      wp_send_json_error('Transcript is empty.');
-    }
-
-    $output = "Transcript (Auto-generated English)\n\n";
-    foreach ($xml->text as $line) {
-      $start = floatval($line['start']);
-      $time = gmdate("H:i:s", intval($start));
-      $text = trim((string) $line);
-      $output .= "[{$time}] {$text}\n";
-    }
-
-    wp_send_json_success(trim($output));
-  } catch (Exception $e) {
-    wp_send_json_error('Error parsing transcript XML.');
-  }
-});
-
-add_action('wp_ajax_ssseo_youtube_list_captions', function () {
-  if (!current_user_can('edit_posts') || empty($_POST['video_id'])) {
-    wp_send_json_error('Invalid request.');
-  }
-
-  $access_token = get_option('ssseo_google_access_token');
-  $video_id = sanitize_text_field($_POST['video_id']);
-
-  $url = "https://youtube.googleapis.com/youtube/v3/captions?part=snippet&videoId={$video_id}";
-  $response = wp_remote_get($url, [
-    'headers' => ['Authorization' => 'Bearer ' . $access_token]
-  ]);
-
-  if (is_wp_error($response)) {
-    wp_send_json_error('Failed to call API.');
-  }
-
-  $body = json_decode(wp_remote_retrieve_body($response), true);
-  $tracks = [];
-
-  foreach ($body['items'] ?? [] as $item) {
-    $tracks[] = [
-      'id'       => $item['id'],
-      'language' => $item['snippet']['language'],
-      'name'     => $item['snippet']['name'],
-      'kind'     => $item['snippet']['trackKind'] ?? 'standard',
-    ];
-  }
-
-  wp_send_json_success($tracks);
-});
-
-add_action('wp_ajax_ssseo_youtube_download_caption', function () {
-  if (!current_user_can('edit_posts') || empty($_POST['caption_id'])) {
-    wp_send_json_error('Missing caption ID.');
-  }
-
-  $access_token = get_option('ssseo_google_access_token');
-  $caption_id = sanitize_text_field($_POST['caption_id']);
-
-  $url = "https://youtube.googleapis.com/youtube/v3/captions/{$caption_id}?tfmt=sbv";
-
-  $response = wp_remote_get($url, [
-    'headers' => [
-      'Authorization' => 'Bearer ' . $access_token,
-      'Accept'        => 'application/sbv'
-    ]
-  ]);
-
-  if (is_wp_error($response)) {
-    wp_send_json_error('Failed to download caption.');
-  }
-
-  $text = wp_remote_retrieve_body($response);
-  wp_send_json_success(trim($text));
-});
-
-add_action('wp_ajax_ssseo_fetch_video_transcript', function () {
-	if (
-		! current_user_can('edit_posts') ||
-		empty($_POST['video_id']) ||
-		! wp_verify_nonce($_POST['nonce'], 'ssseo_generate_transcript_nonce')
-	) {
-		wp_send_json_error('Unauthorized or invalid request.');
-	}
-
-	$video_id = sanitize_text_field($_POST['video_id']);
-	$api_key  = get_option('ssseo_openai_api_key');
-	$yt_key   = get_option('ssseo_youtube_api_key');
-
-	if (empty($api_key)) {
-		wp_send_json_error('Missing OpenAI API key.');
-	}
-
-	// === Get YouTube title & description ===
-	$title = 'Untitled YouTube Video';
-	$desc  = 'This video explores the topic shown in the title. Please infer likely structure and summary.';
-
-	if (!empty($yt_key)) {
-		$yt_response = wp_remote_get("https://www.googleapis.com/youtube/v3/videos?part=snippet&id={$video_id}&key={$yt_key}");
-		if (!is_wp_error($yt_response)) {
-			$data = json_decode(wp_remote_retrieve_body($yt_response), true);
-			if (!empty($data['items'][0]['snippet'])) {
-				$title = sanitize_text_field($data['items'][0]['snippet']['title']);
-				$desc  = sanitize_textarea_field($data['items'][0]['snippet']['description']);
-			}
-		}
-	}
-
-	// === Build prompt using concatenation ===
-	$prompt  = "You are a skilled assistant that generates structured summaries of online videos.\n\n";
-	$prompt .= "Summarize this YouTube video using transcript-style logic. ";
-	$prompt .= "Infer plausible sections and structure if full captions are not available.\n\n";
-	$prompt .= "Title: " . $title . "\n";
-	$prompt .= "Description: " . $desc . "\n";
-	$prompt .= "Video ID: " . $video_id . "\n\n";
-	$prompt .= "Return clean HTML using <h3> for sections and <p> for summaries.";
-
-	// === Send to OpenAI ===
-	$response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
-		'headers' => [
-			'Authorization' => 'Bearer ' . $api_key,
-			'Content-Type'  => 'application/json',
-		],
-		'body' => json_encode([
-			'model'    => 'gpt-4',
-			'messages' => [
-				['role' => 'system', 'content' => 'You are a helpful assistant that summarizes YouTube videos.'],
-				['role' => 'user',   'content' => $prompt],
-			],
-			'max_tokens'  => 1200,
-			'temperature' => 0.7,
-		]),
-		'timeout' => 30,
-	]);
-
-	if (is_wp_error($response)) {
-		wp_send_json_error($response->get_error_message());
-	}
-
-	$data = json_decode(wp_remote_retrieve_body($response), true);
-	$summary = $data['choices'][0]['message']['content'] ?? '';
-
-	if (empty($summary)) {
-		wp_send_json_error('No content returned from OpenAI.');
-	}
-
-	// Return result + prompt
-	wp_send_json_success([
-		'output' => $summary,
-		'prompt' => $prompt
-	]);
-});

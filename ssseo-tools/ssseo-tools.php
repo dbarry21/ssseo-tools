@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SSSEO Tools
  * Description: Modular plugin for SEO and content enhancements.
- * Version: 2.4.0
+ * Version: 2.4.1
  * Author: Dave Barry
  * Text Domain: ssseo
  */
@@ -301,3 +301,152 @@ add_action( 'admin_enqueue_scripts', function( $hook ) {
 });
 
 
+add_action('admin_enqueue_scripts', 'ssseo_enqueue_ai_script');
+function ssseo_enqueue_ai_script($hook) {
+    if (isset($_GET['page'], $_GET['tab']) && $_GET['page'] === 'ssseo-tools' && $_GET['tab'] === 'ai') {
+
+        wp_enqueue_script(
+            'ssseo-ai',
+            plugin_dir_url(__FILE__) . 'assets/js/ssseo-ai.js',
+            ['jquery'],
+            '1.0.0',
+            true
+        );
+
+        // Get post types & posts
+        $post_types = get_post_types(['public' => true], 'objects');
+        $posts_by_type = [];
+
+        foreach ($post_types as $pt) {
+            $posts = get_posts([
+                'post_type'      => $pt->name,
+                'posts_per_page' => -1,
+                'post_status'    => 'publish',
+                'orderby'        => 'title',
+                'order'          => 'ASC',
+            ]);
+            foreach ($posts as $p) {
+                $posts_by_type[$pt->name][] = [
+                    'id'    => $p->ID,
+                    'title' => $p->post_title,
+                ];
+            }
+        }
+
+        $default_type = array_key_exists('video', $posts_by_type) ? 'video' : array_key_first($posts_by_type);
+
+        wp_localize_script('ssseo-ai', 'SSSEO_AI', [
+            'nonce'          => wp_create_nonce('ssseo_ai_generate'),
+            'ajax_url'       => admin_url('admin-ajax.php'),
+            'posts_by_type'  => $posts_by_type,
+            'default_type'   => $default_type,
+        ]);
+    }
+}
+add_action('admin_enqueue_scripts', 'ssseo_enqueue_bulk_script');
+function ssseo_enqueue_bulk_script($hook) {
+    if (isset($_GET['page'], $_GET['tab']) && $_GET['page'] === 'ssseo-tools' && $_GET['tab'] === 'bulk') {
+
+        wp_enqueue_script(
+            'ssseo-admin',
+            plugin_dir_url(__FILE__) . 'assets/js/ssseo-admin.js',
+            ['jquery'],
+            '1.0.0',
+            true
+        );
+
+        // Load posts by type
+        $post_types = get_post_types(['public' => true], 'objects');
+        $posts_by_type = [];
+
+        foreach ($post_types as $pt) {
+            $posts = get_posts([
+                'post_type'      => $pt->name,
+                'posts_per_page' => -1,
+                'post_status'    => 'publish',
+                'orderby'        => 'title',
+                'order'          => 'ASC',
+            ]);
+            foreach ($posts as $p) {
+                $posts_by_type[$pt->name][] = [
+                    'id'    => $p->ID,
+                    'title' => $p->post_title,
+                ];
+            }
+        }
+
+        $default_type = array_key_exists('video', $posts_by_type) ? 'video' : array_key_first($posts_by_type);
+
+        wp_localize_script('ssseo-admin', 'ssseoPostsByType', $posts_by_type);
+        wp_localize_script('ssseo-admin', 'ssseoDefaultType', $default_type);
+
+        // Optional: for history or nonce use
+        wp_localize_script('ssseo-admin', 'ssseo_admin', [
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'nonce'   => wp_create_nonce('ssseo_admin_nonce'),
+        ]);
+    }
+}
+
+
+// ---- City/State helpers ----
+function ssseo_get_city_state_value($post_id=null){
+  $post_id = $post_id ? intval($post_id) : get_the_ID();
+  if(!$post_id) return '';
+  if(function_exists('get_field')){
+    $val = get_field('city_state', $post_id);
+  }else{
+    $val = get_post_meta($post_id, 'city_state', true);
+  }
+  return is_string($val) ? $val : '';
+}
+
+// [city_state] shortcode
+// Usage: [city_state], [city_state post_id="123"], [city_state context="parent"]
+add_shortcode('city_state', function($atts){
+  $atts = shortcode_atts([
+    'post_id' => '',
+    'context' => '', // '', 'parent'
+  ], $atts, 'city_state');
+
+  $pid = $atts['post_id'] !== '' ? intval($atts['post_id']) : get_the_ID();
+  if(!$pid) return '';
+
+  if($atts['context'] === 'parent'){
+    $parent_id = wp_get_post_parent_id($pid);
+    if($parent_id) $pid = $parent_id;
+  }
+
+  $out = ssseo_get_city_state_value($pid);
+  /**
+   * Filter: ssseo_city_state_output
+   * Allow last-mile tweaks, e.g., strip commas or add wrappers.
+   */
+  $out = apply_filters('ssseo_city_state_output', $out, $pid, $atts);
+  return esc_html($out);
+});
+
+// Optional: generic ACF-like helper without colliding with ACF's own [acf] shortcode
+// Usage: [ssseo_acf field="city_state"] or (tolerant) [ssseo_acf city_state]
+add_shortcode('ssseo_acf', function($atts){
+  // Tolerate both field="name" and positional [ssseo_acf name]
+  $defaults = ['field' => '', 'post_id' => ''];
+  // Merge; numeric keys (positional) become values—use the first as field if not provided
+  $atts = shortcode_atts($defaults, $atts, 'ssseo_acf');
+  if(!$atts['field']){
+    foreach($atts as $k=>$v){ if(is_int($k) && $v){ $atts['field']=$v; break; } }
+  }
+  $field = sanitize_key($atts['field']);
+  $pid = $atts['post_id'] !== '' ? intval($atts['post_id']) : get_the_ID();
+  if(!$field || !$pid) return '';
+  if(function_exists('get_field')){
+    $val = get_field($field, $pid);
+  }else{
+    $val = get_post_meta($pid, $field, true);
+  }
+  return esc_html(is_string($val)?$val:'');
+});
+
+// (Optional) run shortcodes in widget text; titles are generally NOT recommended.
+// If you truly want shortcodes in titles site-wide, uncomment the next line:
+// add_filter('the_title', 'do_shortcode');

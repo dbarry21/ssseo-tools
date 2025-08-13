@@ -217,10 +217,6 @@ function ssseo_ai_generate_about_area_callback() {
     ]);
 }
 
-
-
-
-
 add_action('wp_ajax_ssseo_get_city_state', function () {
     header('Content-Type: application/json');
 
