@@ -2,54 +2,69 @@
 // File: admin/tabs/bulk.php
 if (!defined('ABSPATH')) exit;
 
-// Load post types and group posts
+// Load public post types and prefetch posts grouped by type (title ASC)
 $post_types = get_post_types(['public' => true], 'objects');
 
 $posts_by_type = [];
 foreach ($post_types as $pt) {
-  $all_posts = get_posts([
-    'post_type'      => $pt->name,
-    'posts_per_page' => -1,
-    'post_status'    => 'publish',
-    'orderby'        => 'title',
-    'order'          => 'ASC',
-  ]);
-  foreach ($all_posts as $p) {
-    $posts_by_type[$pt->name][] = [
-      'id'    => $p->ID,
-      'title' => $p->post_title,
-    ];
-  }
+    $all_posts = get_posts([
+        'post_type'      => $pt->name,
+        'posts_per_page' => -1,
+        'post_status'    => 'publish',
+        'orderby'        => 'title',
+        'order'          => 'ASC',
+        'fields'         => 'ids',
+    ]);
+    $posts_by_type[$pt->name] = [];
+    foreach ($all_posts as $pid) {
+        $posts_by_type[$pt->name][] = [
+            'id'    => $pid,
+            'title' => get_the_title($pid),
+        ];
+    }
 }
 $default_pt = array_key_first($posts_by_type);
 
-// Get root-level services and service areas
+// Get root-level services and service areas (for Clone tab)
 $top_services = get_posts([
-  'post_type'      => 'service',
-  'post_status'    => 'publish',
-  'post_parent'    => 0,
-  'orderby'        => 'title',
-  'order'          => 'ASC',
-  'posts_per_page' => -1,
+  'post_type'        => 'service',
+  'post_status'      => ['publish','draft','pending','future','private'],
+  'post_parent'      => 0,
+  'orderby'          => 'title',
+  'order'            => 'ASC',
+  'posts_per_page'   => -1,
+  'suppress_filters' => true,   // guard against WPML/Polylang/admin filters
+  'fields'           => 'ids',  // faster
+  'no_found_rows'    => true,
 ]);
 
 $top_service_areas = get_posts([
-  'post_type'      => 'service_area',
-  'post_status'    => 'publish',
-  'post_parent'    => 0,
-  'orderby'        => 'title',
-  'order'          => 'ASC',
-  'posts_per_page' => -1,
+  'post_type'        => 'service_area',
+  'post_status'      => ['publish','draft','pending','future','private'],
+  'post_parent'      => 0,
+  'orderby'          => 'title',
+  'order'            => 'ASC',
+  'posts_per_page'   => -1,
+  'suppress_filters' => true,
+  'fields'           => 'ids',
+  'no_found_rows'    => true,
 ]);
 
 // Build a full list of service_area posts for the "source" selector
 $all_service_areas = get_posts([
-  'post_type'      => 'service_area',
-  'post_status'    => 'publish',
-  'orderby'        => 'title',
-  'order'          => 'ASC',
-  'posts_per_page' => -1,
+  'post_type'        => 'service_area',
+  'post_status'      => ['publish','draft','pending','future','private'],
+  'orderby'          => 'title',
+  'order'            => 'ASC',
+  'posts_per_page'   => -1,
+  'suppress_filters' => true,
+  'fields'           => 'ids',
+  'no_found_rows'    => true,
 ]);
+
+
+// Prepare a nonce for all Bulk operations (incl. canonical)
+$bulk_nonce = wp_create_nonce('ssseo_bulk_ops');
 ?>
 <div class="container mt-4">
   <h2>Bulk Operations</h2>
@@ -57,6 +72,9 @@ $all_service_areas = get_posts([
   <ul class="nav nav-tabs" id="ssseoBulkTabs" role="tablist">
     <li class="nav-item" role="presentation">
       <button class="nav-link active" id="yoast-tab" data-bs-toggle="tab" data-bs-target="#yoast" type="button" role="tab">Yoast Operations</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="canonical-tab" data-bs-toggle="tab" data-bs-target="#canonical" type="button" role="tab">Canonical Functions</button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="youtube-tab" data-bs-toggle="tab" data-bs-target="#youtube" type="button" role="tab">YouTube Fix</button>
@@ -100,6 +118,19 @@ $all_service_areas = get_posts([
       <div id="ssseo_bulk_result" class="border p-3 bg-light" style="display:none; max-width:700px;"></div>
     </div>
 
+    <!-- Canonical Tab -->
+    <div class="tab-pane fade" id="canonical" role="tabpanel" aria-labelledby="canonical-tab">
+      <?php
+        // Load the canonical subtab markup. Adjust this include path if you relocate the file.
+        $canonical_file = __DIR__ . '/bulk/canonical.php';
+        if ( file_exists( $canonical_file ) ) {
+            include $canonical_file;
+        } else {
+            echo '<div class="alert alert-warning">canonical.php not found. Place it next to bulk.php.</div>';
+        }
+      ?>
+    </div>
+
     <!-- YouTube Tab -->
     <div class="tab-pane fade" id="youtube" role="tabpanel" aria-labelledby="youtube-tab">
       <p class="text-muted">This operation will scan all posts for YouTube iframes and wrap them responsively.</p>
@@ -126,11 +157,12 @@ $all_service_areas = get_posts([
               <h5 class="card-title">1) Choose Source Service Area (single)</h5>
               <input type="text" id="ssseo-clone-sa-source-filter" class="form-control mb-2" placeholder="Filter source by title…">
               <select id="ssseo-clone-sa-source" class="form-select" size="12" aria-label="Source service area">
-                <?php foreach ($all_service_areas as $p): ?>
-                  <option value="<?php echo esc_attr($p->ID); ?>">
-                    <?php echo esc_html($p->post_title . ' (ID ' . $p->ID . ')'); ?>
-                  </option>
-                <?php endforeach; ?>
+                <?php foreach ($all_service_areas as $pid): ?>
+  <option value="<?php echo esc_attr($pid); ?>">
+    <?php echo esc_html(get_the_title($pid) . ' (ID ' . $pid . ')'); ?>
+  </option>
+<?php endforeach; ?>
+
               </select>
               <div class="form-text mt-2">Copies content, meta (incl. Elementor), taxonomies, and featured image.</div>
             </div>
@@ -153,11 +185,12 @@ $all_service_areas = get_posts([
               <div class="form-text mb-2">We’ll append the parent’s <code>city_state</code> (e.g., “Pool screen cleaning Bradenton, FL”).</div>
 
               <select id="ssseo-clone-sa-targets" class="form-select" multiple size="12" aria-label="Target parent service areas">
-                <?php foreach ($top_service_areas as $p): ?>
-                  <option value="<?php echo esc_attr($p->ID); ?>">
-                    <?php echo esc_html($p->post_title . ' (ID ' . $p->ID . ')'); ?>
-                  </option>
-                <?php endforeach; ?>
+                <?php foreach ($top_service_areas as $pid): ?>
+  <option value="<?php echo esc_attr($pid); ?>">
+    <?php echo esc_html(get_the_title($pid) . ' (ID ' . $pid . ')'); ?>
+  </option>
+<?php endforeach; ?>
+
               </select>
               <div class="form-text mt-2">Only top‑level Service Areas (parent = 0) are listed.</div>
             </div>
@@ -191,7 +224,98 @@ $all_service_areas = get_posts([
         <div id="ssseo-clone-sa-results" class="card card-body" style="min-height:80px; overflow:auto;"></div>
       </div>
     </div>
-
-
   </div>
 </div>
+
+<!-- Expose data & nonce for JS (incl. canonical subtab) -->
+<script>
+window.ssseoPostsByType = <?php echo wp_json_encode( $posts_by_type, JSON_UNESCAPED_UNICODE ); ?>;
+window.SSSEO = Object.assign(window.SSSEO || {}, {
+  nonce: '<?php echo esc_js( $bulk_nonce ); ?>'
+});
+</script>
+<script>
+jQuery(function($){
+  // --- 1) Yoast Ops list population from ssseoPostsByType ---
+  (function initYoastOps(){
+    if (typeof window.ssseoPostsByType === 'undefined') return;
+
+    const $pt    = $('#ssseo_bulk_pt_filter');
+    const $list  = $('#ssseo_bulk_post_id');
+    const $search= $('#ssseo_bulk_post_search');
+
+    function renderForType(type, filter){
+      const posts = (window.ssseoPostsByType[type] || []);
+      const f = (filter || '').toLowerCase();
+      $list.empty();
+      posts.forEach(p => {
+        const t = (p.title || '').toLowerCase();
+        if (!f || t.indexOf(f) !== -1) {
+          $('<option>').val(p.id).text(p.title || ('(no title) #' + p.id)).appendTo($list);
+        }
+      });
+    }
+
+    // initial
+    renderForType($pt.val(), $search.val());
+    // changes
+    $pt.on('change', function(){ renderForType($(this).val(), $search.val()); });
+    $search.on('input', function(){ renderForType($pt.val(), $(this).val()); });
+  })();
+
+  // --- 2) Clone Service Areas: backfill selections via AJAX if empty ---
+  (function initCloneTab(){
+    const $src = $('#ssseo-clone-sa-source');
+    const $tgt = $('#ssseo-clone-sa-targets');
+
+    // If server-side lists are empty (affected by filters), fetch via AJAX
+    const needSrc = $src.length && $src.find('option').length === 0;
+    const needTgt = $tgt.length && $tgt.find('option').length === 0;
+
+    function opt(id, title){ 
+      return $('<option>').val(id).text((title || '(no title)') + ' (ID ' + id + ')'); 
+    }
+
+    function fillSource(items){
+      $src.empty();
+      items.forEach(it => { $src.append(opt(it.id, it.title)); });
+    }
+    function fillTargets(items){
+      $tgt.empty();
+      items.forEach(it => { $tgt.append(opt(it.id, it.title)); });
+    }
+
+    const nonce = (window.SSSEO && SSSEO.nonce) ? SSSEO.nonce : '';
+
+    if (needSrc) {
+      $.post(ajaxurl, { action: 'ssseo_sa_all', nonce: nonce }).done(function(res){
+        if (res && res.success && res.data && Array.isArray(res.data.items)) {
+          fillSource(res.data.items);
+        }
+      });
+    }
+    if (needTgt) {
+      $.post(ajaxurl, { action: 'ssseo_sa_top_parents', nonce: nonce }).done(function(res){
+        if (res && res.success && res.data && Array.isArray(res.data.items)) {
+          fillTargets(res.data.items);
+        }
+      });
+    }
+
+    // local filter UX (works for both server or ajax-filled lists)
+    function filterSelect($input, $select) {
+      var needle = ($input.val() || '').toLowerCase();
+      $select.find('option').each(function(){
+        var txt = $(this).text().toLowerCase();
+        $(this).toggle(txt.indexOf(needle) !== -1);
+      });
+    }
+    $('#ssseo-clone-sa-source-filter').on('input', function(){
+      filterSelect($(this), $('#ssseo-clone-sa-source'));
+    });
+    $('#ssseo-clone-sa-target-filter').on('input', function(){
+      filterSelect($(this), $('#ssseo-clone-sa-targets'));
+    });
+  })();
+});
+</script>

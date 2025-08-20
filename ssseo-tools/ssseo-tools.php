@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SSSEO Tools
  * Description: Modular plugin for SEO and content enhancements.
- * Version: 2.4.1
+ * Version: 2.5
  * Author: Dave Barry
  * Text Domain: ssseo
  */
@@ -62,6 +62,7 @@ function ssseo_tools_render_admin_page() {
         'ai'               => 'AI',
         'bulk'             => 'Bulk Operations',
         'meta-tag-history' => 'Meta Tag History',
+		'gsc'			=> 'Search Console',
     ];
 
     foreach ($tabs as $slug => $label) {
