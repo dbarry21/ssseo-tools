@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SSSEO Tools
  * Description: Modular plugin for SEO and content enhancements.
- * Version: 2.5
+ * Version: 2.7
  * Author: Dave Barry
  * Text Domain: ssseo
  */
@@ -26,7 +26,8 @@ require_once __DIR__ . '/modules/ai-functions.php';
 if (get_option('ssseo_enable_youtube', '1') === '1') {
     require_once __DIR__ . '/inc/ssseo-video.php';
 }
-
+// File: inc/meta-history-logger.php
+    require_once __DIR__ . '/inc/meta-history-logger.php';
 // Admin Bar
 add_action('after_setup_theme', function () {
     if (is_admin_bar_showing()) {
