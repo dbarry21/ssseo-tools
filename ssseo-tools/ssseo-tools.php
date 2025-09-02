@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SSSEO Tools
  * Description: Modular plugin for SEO and content enhancements.
- * Version: 2.7
+ * Version: 3.0
  * Author: Dave Barry
  * Text Domain: ssseo
  */
@@ -19,6 +19,7 @@ require_once __DIR__ . '/inc/llms-output.php';
 // Modules
 require_once __DIR__ . '/modules/cpt-registration.php';
 require_once __DIR__ . '/modules/shortcodes.php';
+require_once __DIR__ . '/modules/shortcodes-card-grid.php';
 require_once __DIR__ . '/modules/filters.php';
 require_once __DIR__ . '/modules/map-as-featured.php';
 require_once __DIR__ . '/modules/ai-functions.php';
@@ -452,3 +453,67 @@ add_shortcode('ssseo_acf', function($atts){
 // (Optional) run shortcodes in widget text; titles are generally NOT recommended.
 // If you truly want shortcodes in titles site-wide, uncomment the next line:
 // add_filter('the_title', 'do_shortcode');
+
+add_action( 'acf/init', function() {
+	if ( ! function_exists( 'acf_add_local_field_group' ) ) {
+		return;
+	}
+
+	acf_add_local_field_group( array(
+	'key' => 'group_68b69ccacb01f',
+	'title' => 'Featured Icon',
+	'fields' => array(
+		array(
+			'key' => 'field_68b69ccba9d34',
+			'label' => 'Featured Icon',
+			'name' => 'featured_icon',
+			'aria-label' => '',
+			'type' => 'image',
+			'instructions' => '',
+			'required' => 0,
+			'conditional_logic' => 0,
+			'wrapper' => array(
+				'width' => '',
+				'class' => '',
+				'id' => '',
+			),
+			'return_format' => 'array',
+			'library' => 'all',
+			'min_width' => '',
+			'min_height' => '',
+			'min_size' => '',
+			'max_width' => '',
+			'max_height' => '',
+			'max_size' => '',
+			'mime_types' => '',
+			'allow_in_bindings' => 0,
+			'preview_size' => 'medium',
+		),
+	),
+	'location' => array(
+		array(
+			array(
+				'param' => 'post_type',
+				'operator' => '==',
+				'value' => 'service',
+			),
+		),
+		array(
+			array(
+				'param' => 'post_type',
+				'operator' => '==',
+				'value' => 'service_area',
+			),
+		),
+	),
+	'menu_order' => 0,
+	'position' => 'normal',
+	'style' => 'default',
+	'label_placement' => 'top',
+	'instruction_placement' => 'label',
+	'hide_on_screen' => '',
+	'active' => true,
+	'description' => '',
+	'show_in_rest' => 0,
+) );
+} );
