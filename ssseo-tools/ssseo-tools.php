@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SSSEO Tools
  * Description: Modular plugin for SEO and content enhancements.
- * Version: 3.0
+ * Version: 3.2
  * Author: Dave Barry
  * Text Domain: ssseo
  */
@@ -21,7 +21,13 @@ require_once __DIR__ . '/modules/cpt-registration.php';
 require_once __DIR__ . '/modules/shortcodes.php';
 require_once __DIR__ . '/modules/shortcodes-card-grid.php';
 require_once __DIR__ . '/modules/filters.php';
+
 require_once __DIR__ . '/modules/map-as-featured.php';
+require_once __DIR__ . '/modules/map-embed-shortcode.php';
+require_once __DIR__ . '/modules/service-area-grid.php';
+require_once __DIR__ . '/modules/gmb-address.php';
+
+
 require_once __DIR__ . '/modules/ai-functions.php';
 
 if (get_option('ssseo_enable_youtube', '1') === '1') {
@@ -517,3 +523,38 @@ add_action( 'acf/init', function() {
 	'show_in_rest' => 0,
 ) );
 } );
+/** Point to your plugin’s main file (adjust if needed). */
+if ( ! defined('SSSEO_PLUGIN_FILE') ) {
+  define('SSSEO_PLUGIN_FILE', __FILE__);
+}
+
+/** Helpers for paths/urls */
+function ssseo_assets_url( $rel = '' ) {
+  return plugins_url( ltrim($rel, '/'), SSSEO_PLUGIN_FILE );
+}
+function ssseo_assets_path( $rel = '' ) {
+  return plugin_dir_path( SSSEO_PLUGIN_FILE ) . ltrim($rel, '/');
+}
+
+/** Front-end stylesheet */
+add_action('wp_enqueue_scripts', function () {
+  $rel  = 'assets/css/ssseo.css';
+  $path = ssseo_assets_path($rel);
+  $ver  = file_exists($path) ? filemtime($path) : '1.0.0';
+  wp_enqueue_style('ssseo-tools', ssseo_assets_url($rel), [], $ver);
+});
+
+/** Admin stylesheet (load only on SSSEO pages or service_area edit screens) */
+add_action('admin_enqueue_scripts', function () {
+  $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+
+  $is_ssseo_page = isset($_GET['page']) && strpos((string) $_GET['page'], 'ssseo') !== false;
+  $is_service_area_edit = $screen && $screen->post_type === 'service_area' && in_array($screen->base, ['post','edit'], true);
+
+  if ( ! $is_ssseo_page && ! $is_service_area_edit ) return;
+
+  $rel  = 'assets/css/ssseo.css';
+  $path = ssseo_assets_path($rel);
+  $ver  = file_exists($path) ? filemtime($path) : '1.0.0';
+  wp_enqueue_style('ssseo-tools-admin', ssseo_assets_url($rel), [], $ver);
+});

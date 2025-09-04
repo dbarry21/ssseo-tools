@@ -165,6 +165,13 @@ $bulk_nonce = wp_create_nonce('ssseo_bulk_ops');
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="clone-sa-tab" data-bs-toggle="tab" data-bs-target="#clone-sa" type="button" role="tab">Clone Service Areas to Parents</button>
     </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="googlemaps-tab" data-bs-toggle="tab" data-bs-target="#googlemaps" type="button" role="tab">Google Maps</button>
+    </li>
+	<li class="nav-item" role="presentation">
+	  <button class="nav-link" id="ai-summaries-tab" data-bs-toggle="tab" data-bs-target="#ai-summaries" type="button" role="tab">AI Summaries</button>
+	</li>
+
   </ul>
 
   <div class="tab-content border border-top-0 p-4">
@@ -247,8 +254,51 @@ $bulk_nonce = wp_create_nonce('ssseo_bulk_ops');
         }
       ?>
     </div>
+	  
+	      <!-- Google Maps Tab -->
+    <div class="tab-pane fade" id="googlemaps" role="tabpanel" aria-labelledby="googlemaps-tab">
+      <?php
+        $gmaps_file = __DIR__ . '/bulk/google-maps.php';
+        if ( file_exists( $gmaps_file ) ) {
+          include $gmaps_file;
+        } else {
+          echo '<div class="alert alert-warning">google-maps.php not found. Place it in admin/tabs/bulk/.</div>';
+        }
+      ?>
+    </div>
+	<!-- AI Summaries Tab -->
+	<div class="tab-pane fade" id="ai-summaries" role="tabpanel" aria-labelledby="ai-summaries-tab">
+	  <?php
+		$ai_file = __DIR__ . '/bulk/ai-summaries.php';
+		if ( file_exists( $ai_file ) ) {
+		  include $ai_file;
+		} else {
+		  echo '<div class="alert alert-warning">ai-summaries.php not found. Place it in admin/tabs/bulk/.</div>';
+		}
+	  ?>
+	</div>
+
+
   </div>
 </div>
+
+<script>
+window.ssseoPostsByType = <?php echo wp_json_encode( $posts_by_type, JSON_UNESCAPED_UNICODE ); ?>;
+window.SSSEO = Object.assign(window.SSSEO || {}, {
+  bulkNonce: '<?php echo esc_js( $bulk_nonce ); ?>',
+  nonce: '<?php echo esc_js( $bulk_nonce ); ?>'
+});
+
+// >>> Add this block: publish a simple id/title list for service areas
+window.SSSEO.gmapsItems = <?php
+  $gmaps_items = [];
+  foreach ($all_service_areas as $sid) {
+    $gmaps_items[] = ['id' => (int)$sid, 'title' => get_the_title($sid) ?: "(no title) #$sid"];
+  }
+  echo wp_json_encode($gmaps_items, JSON_UNESCAPED_UNICODE);
+?>;
+</script>
+
 
 <!-- Expose data & nonce for JS (incl. canonical/clone subtabs) -->
 <script>
