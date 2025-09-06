@@ -1,1058 +1,645 @@
-<?php
-// ShortCode to display Service Areas
-
-function service_area_shortcode() {
-    // Get the current post ID
-    if (is_singular('service_area')) {
-        $current_post_id = get_the_ID();
-    } else {
-        $current_post_id = 0;
-    }
-
-   // Query for 'service_area' posts with post_parent of '0' and alphabetize the post listing
-$args = array(
-    'post_type'      => 'service_area',
-    'post_parent'    => 0,
-    'posts_per_page' => -1,
-    'orderby'        => 'title',  // Order by the title
-    'order'          => 'ASC',    // Order in ascending order
-);
-
-    // Exclude the current post if on a service_area post page
-    if ($current_post_id) {
-        $args['post__not_in'] = array($current_post_id);
-    }
-
-    $service_areas = new WP_Query($args);
-
-    // Check if there are any posts
-    if ($service_areas->have_posts()) {
-        // Initialize output variable
-        $output = '<div class="container service-areas"><div class="row">';
-        $output .= '<div class="col-lg-12">';
-        $output .= '<ul class="list-unstyled service-area-list">';
-
-        // Loop through posts and build the list items
-        while ($service_areas->have_posts()) {
-            $service_areas->the_post();
-            $output .= '
-                <li>
-                    <i class="fa fa-map-marker ssseo-icon"></i>
-                    <a href="' . get_permalink() . '" class="service-area-link">' . get_the_title() . '</a>
-                </li>';
-        }
-
-        $output .= '</ul></div></div></div>';
-
-        // Reset post data
-        wp_reset_postdata();
-
-        return $output;
-    } else {
-        return '<p>No service areas found.</p>';
-    }
-}
-
-
-// Register the shortcode
-add_shortcode('service_area_list_all', 'service_area_shortcode_all');
-
-function service_area_shortcode_all() {
-    // Get the current post ID
-    if (is_singular('service_area')) {
-        $current_post_id = get_the_ID();
-    } else {
-        $current_post_id = 0;
-    }
-
-   // Query for 'service_area' posts with post_parent of '0' and alphabetize the post listing
-$args = array(
-    'post_type'      => 'service_area',
-    'post_parent'    => 0,
-    'posts_per_page' => -1,
-    'orderby'        => 'title',  // Order by the title
-    'order'          => 'ASC',    // Order in ascending order
-);
-
-    // Exclude the current post if on a service_area post page
-    if ($current_post_id) {
-        $args['post__not_in'] = array($current_post_id);
-    }
-
-    $service_areas = new WP_Query($args);
-
-    // Check if there are any posts
-    if ($service_areas->have_posts()) {
-        // Initialize output variable
-        $output = '<div class="container service-areas"><div class="row">';
-        $output .= '<div class="col-lg-12">';
-        $output .= '<ul class="list-unstyled service-area-list">';
-
-        // Loop through posts and build the list items
-        while ($service_areas->have_posts()) {
-            $service_areas->the_post();
-            $output .= '
-                <li>
-                    <i class="fa fa-map-marker ssseo-icon"></i>
-                    <a href="' . get_permalink() . '" class="service-area-link">' . get_the_title() . '</a>
-                </li>';
-        }
-
-        $output .= '</ul></div></div></div>';
-
-        // Reset post data
-        wp_reset_postdata();
-
-        return $output;
-    } else {
-        return '<p>No service areas found.</p>';
-    }
-}
-
-// Register the shortcode
-add_shortcode('service_area_list_all', 'service_area_shortcode_all');
 /**
- * Shortcode: [faq_schema_accordion]
- * 
- * Outputs a Bootstrap 5 accordion of your ACF repeater 'faq_items'.
- */
-function faq_schema_accordion_shortcode( $atts ) {
-    // Make sure ACF is active
-    if ( ! function_exists( 'have_rows' ) || ! function_exists( 'get_sub_field' ) ) {
-        return '<p><em>ACF not active or missing repeater support.</em></p>';
-    }
-
-    // Determine current post ID
-    global $post;
-    $post_id = $post->ID ?? get_the_ID();
-    if ( ! $post_id ) {
-        return '<p><em>Unable to determine post ID.</em></p>';
-    }
-
-    // Bail if no rows
-    if ( ! have_rows( 'faq_items', $post_id ) ) {
-        return '<p><em>No FAQs found.</em></p>';
-    }
-
-    // Unique container ID
-    $accordion_id = 'faqAccordion_' . uniqid();
-
-    ob_start();
-    ?>
-    <div class="accordion ssseo-accordion" id="<?php echo esc_attr( $accordion_id ); ?>">
-        <?php
-        $index = 0;
-        while ( have_rows( 'faq_items', $post_id ) ) {
-            the_row();
-
-            // Pull sub-fields by their ACF *field names* (no punctuation)
-            $raw_q = get_sub_field( 'question' );
-            $raw_a = get_sub_field( 'answer' );
-
-            // Sanitize
-            $question = trim( sanitize_text_field( $raw_q ) );
-            $answer   = trim( wp_kses_post(      $raw_a ) );
-
-            // Skip empty
-            if ( ! $question || ! $answer ) {
-                continue;
-            }
-
-            // IDs for collapse targets
-            $heading_id  = "{$accordion_id}_heading_{$index}";
-            $collapse_id = "{$accordion_id}_collapse_{$index}";
-        ?>
-            <div class="ssseo-accordion-item">
-                <h2 class="ssseo-accordion-header" id="<?php echo esc_attr( $heading_id ); ?>">
-                    <button
-                        class="accordion-button collapsed"
-                        type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#<?php echo esc_attr( $collapse_id ); ?>"
-                        aria-expanded="false"
-                        aria-controls="<?php echo esc_attr( $collapse_id ); ?>"
-                    >
-                        <?php echo esc_html( $question ); ?>
-                    </button>
-                </h2>
-                <div
-                    id="<?php echo esc_attr( $collapse_id ); ?>"
-                    class="accordion-collapse collapse"
-                    aria-labelledby="<?php echo esc_attr( $heading_id ); ?>"
-                    data-bs-parent="#<?php echo esc_attr( $accordion_id ); ?>"
-                >
-                    <div class="accordion-body">
-                        <?php echo $answer; ?>
-                    </div>
-                </div>
-            </div>
-        <?php
-            $index++;
-        } // end while
-        ?>
-    </div>
-    <?php
-    return ob_get_clean();
-}
-add_shortcode( 'faq_schema_accordion', 'faq_schema_accordion_shortcode' );
-
-/**
- * Shortcode: [ssseo_category_list include_empty="0|1" min_count="0"]
- * Outputs a Bootstrap list-group of post categories, filtered by minimum post count.
- * 
- * @param array $atts {
- *     Shortcode attributes.
+ * SSSEO Tools – Google Places "Open Now" Shortcode
+ * (shows next opening when closed, closing time when open)
+ * + styles only the words "Open" (green) / "Closed" (red) in text output
  *
- *     @type string $include_empty '1' to include empty categories, '0' (default) to hide them.
- *     @type int    $min_count     Minimum number of posts in a category to display (default 0).
- * }
- * @return string HTML markup for the category list.
- */
-function ssseo_category_list_shortcode( $atts ) {
-    // Merge user attributes with defaults.
-    $atts = shortcode_atts( array(
-        'include_empty' => '0',
-        'min_count'     => 0,
-    ), $atts, 'ssseo_category_list' );
-
-    // Determine whether to hide empty categories.
-    $hide_empty = ( '1' !== $atts['include_empty'] );
-
-    // Ensure min_count is an integer ≥ 0.
-    $min_count = max( 0, intval( $atts['min_count'] ) );
-
-    // Fetch all categories based on hide_empty setting.
-    $categories = get_categories( array(
-        'hide_empty' => $hide_empty,
-    ) );
-
-    // Filter out those below min_count.
-    $filtered = array_filter( $categories, function( $cat ) use ( $min_count ) {
-        return $cat->count >= $min_count;
-    } );
-
-    if ( empty( $filtered ) ) {
-        return '';
-    }
-
-    // Build the Bootstrap list-group.
-    $output  = '<div class="list-group ssseo">';
-    foreach ( $filtered as $category ) {
-        $link = esc_url( get_category_link( $category->term_id ) );
-        $name = esc_html( $category->name );
-
-        $output .= sprintf(
-            '<a href="%1$s" class="list-group-item list-group-item-action ssseo" style="background-color: var(--e-global-color-primary); color: var(--e-global-color-secondary);">%2$s <span class="badge badge-light">%3$d posts</span></a>',
-            $link,
-            $name,
-            intval( $category->count )
-        );
-    }
-    $output .= '</div>';
-
-    return $output;
-}
-add_shortcode( 'ssseo_category_list', 'ssseo_category_list_shortcode' );
-
-
-/**
- * Shortcode: [custom_blog_cards posts_per_page="12"]
- * Renders a Bootstrap card grid of your latest posts (default 12 per page).
- */
-function custom_blog_cards_shortcode( $atts ) {
-    // Allow user to override posts per page via shortcode attribute
-    $atts = shortcode_atts(
-        array(
-            'posts_per_page' => 12,
-        ),
-        $atts,
-        'custom_blog_cards'
-    );
-
-    // Figure out current pagination page
-    $paged = get_query_var( 'paged' ) ? get_query_var( 'paged' ) : ( get_query_var( 'page' ) ? get_query_var( 'page' ) : 1 );
-
-    // Custom query for posts
-    $query_args = array(
-        'post_type'      => 'post',
-        'paged'          => $paged,
-        'posts_per_page' => intval( $atts['posts_per_page'] ),
-    );
-    $custom_query = new WP_Query( $query_args );
-
-    ob_start();
-
-    if ( $custom_query->have_posts() ) : ?>
-        <div class="row">
-        <?php
-        while ( $custom_query->have_posts() ) :
-            $custom_query->the_post(); ?>
-            <div class="col-md-4 mb-4">
-              <a href="<?php the_permalink(); ?>"
-                 class="card h-100 text-decoration-none text-reset">
-                <?php if ( has_post_thumbnail() ) : ?>
-                  <img
-                    src="<?php echo esc_url( get_the_post_thumbnail_url( get_the_ID(), 'medium' ) ); ?>"
-                    class="card-img-top"
-                    alt="<?php the_title_attribute(); ?>"
-                  >
-                <?php endif; ?>
-
-                <div class="card-body">
-                  <h5 class="card-title"><?php the_title(); ?></h5>
-                  <div class="card-meta mb-2">
-                    <span class="meta-date"><?php echo get_the_date( 'm/d/Y' ); ?></span>
-                    <span class="meta-author">by <?php echo get_the_author(); ?></span>
-                  </div>
-                  <p class="card-text">
-                    <?php echo wp_trim_words( get_the_excerpt(), 20 ); ?>
-                  </p>
-                </div>
-              </a>
-            </div>
-        <?php endwhile; ?>
-        </div> <!-- .row -->
-
-        <?php
-        // Temporarily swap in our custom query so pagination works
-        global $wp_query;
-        $orig_query = $wp_query;
-        $wp_query   = $custom_query;
-
-        // Output WP core pagination
-        the_posts_pagination( array(
-            'mid_size'           => 2,
-            'prev_text'          => '&laquo; Prev',
-            'next_text'          => 'Next &raquo;',
-            'screen_reader_text' => 'Posts navigation',
-        ) );
-
-        // Restore original query object
-        $wp_query = $orig_query;
-        wp_reset_postdata();
-
-    else : ?>
-        <p><?php esc_html_e( 'Sorry, no posts found.', 'ssseo' ); ?></p>
-    <?php
-    endif;
-
-    return ob_get_clean();
-}
-add_shortcode( 'custom_blog_cards', 'custom_blog_cards_shortcode' );
-
-
-add_shortcode('about_the_area', 'ssseo_shortcode_about_the_area');
-function ssseo_shortcode_about_the_area($atts) {
-    global $post;
-    if (! $post || $post->post_type !== 'service_area') return '';
-
-    $content = get_post_meta($post->ID, '_about_the_area', true);
-    return wpautop(do_shortcode($content));
-}
-
-
-
-// [city_only] – extract the "City" part from an ACF/meta "city_state" field.
-// Attributes:
-//  - post_id:   (int)     specific post id; default: current post
-//  - from:      (string)  'self' | 'parent' | 'ancestor' (nearest); default: 'self'
-//  - field:     (string)  meta/ACF field name; default: 'city_state'
-//  - delimiter: (string)  character between city/state; default: ','
-//  - fallback:  (string)  text to return when no city found; default: ''
-if ( ! function_exists('ssseo_register_city_only_shortcode') ) {
-    add_action('init', 'ssseo_register_city_only_shortcode');
-    function ssseo_register_city_only_shortcode() {
-        add_shortcode('city_only', 'ssseo_shortcode_city_only');
-    }
-}
-
-function ssseo_service_grid_shortcode_v2( $atts = [] ) {
-    $a = shortcode_atts( [
-        'posts_per_page' => -1,
-        'orderby'        => 'menu_order title',
-        'order'          => 'ASC',
-        'row_class'      => 'row',
-        'col_class'      => 'col-md-6 col-lg-3 mb-4',
-        'box_class'      => 'service-box h-100',
-        'image_size'     => 'large',
-
-        // New bits
-        'button'         => '1',
-        'button_text'    => 'Learn More',
-        'button_class'   => 'btn btn-primary mt-2',
-        'button_target'  => '',           // e.g. _blank
-        'button_rel'     => '',           // e.g. nofollow
-
-        'show_excerpt'   => '0',
-        'excerpt_words'  => '20',
-    ], $atts, 'service_grid' );
-
-    // Query services
-    $q = new WP_Query( [
-        'post_type'      => 'service',
-        'posts_per_page' => intval( $a['posts_per_page'] ),
-        'post_status'    => 'publish',
-        'orderby'        => $a['orderby'],
-        'order'          => $a['order'],
-        'no_found_rows'  => true,
-    ] );
-
-    ob_start();
-
-    if ( $q->have_posts() ) {
-        echo '<div class="' . esc_attr( $a['row_class'] ) . '">';
-
-        while ( $q->have_posts() ) {
-            $q->the_post();
-            $post_id   = get_the_ID();
-            $title     = get_the_title();
-            $permalink = get_permalink();
-            $thumb_url = get_the_post_thumbnail_url( $post_id, $a['image_size'] );
-
-            echo '<div class="' . esc_attr( $a['col_class'] ) . '">';
-            echo   '<div class="' . esc_attr( $a['box_class'] ) . '">';
-
-            if ( $thumb_url ) {
-                echo '<a href="' . esc_url( $permalink ) . '">';
-                echo '<img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $title ) . '" class="img-fluid mb-3 rounded" loading="lazy">';
-                echo '</a>';
-            }
-
-            echo '<h4 class="mb-2"><a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a></h4>';
-
-            if ( $a['show_excerpt'] === '1' ) {
-                $excerpt = get_the_excerpt( $post_id );
-                if ( ! $excerpt ) $excerpt = wp_trim_words( strip_shortcodes( get_post_field( 'post_content', $post_id ) ), max( 1, intval( $a['excerpt_words'] ) ) );
-                if ( $excerpt ) echo '<p class="mb-2">' . esc_html( $excerpt ) . '</p>';
-            }
-
-            if ( $a['button'] === '1' ) {
-                echo '<a href="' . esc_url( $permalink ) . '"'
-                    . ( $a['button_class'] ? ' class="' . esc_attr( $a['button_class'] ) . '"' : '' )
-                    . ( $a['button_target'] ? ' target="' . esc_attr( $a['button_target'] ) . '"' : '' )
-                    . ( $a['button_rel'] ? ' rel="' . esc_attr( $a['button_rel'] ) . '"' : '' )
-                    . '>' . esc_html( $a['button_text'] ) . '</a>';
-            }
-
-            echo   '</div>';
-            echo '</div>';
-        }
-
-        echo '</div>';
-        wp_reset_postdata();
-    } else {
-        echo '<p>No services found.</p>';
-    }
-
-    return ob_get_clean();
-}
-
-add_shortcode( 'service_grid', 'ssseo_service_grid_shortcode_v2' );
-
-
-if ( ! function_exists('ssseo_shortcode_city_only') ) {
-    function ssseo_shortcode_city_only( $atts = [], $content = null, $tag = '' ) {
-        $atts = shortcode_atts([
-            'post_id'   => 0,
-            'from'      => 'self',     // self|parent|ancestor
-            'field'     => 'city_state',
-            'delimiter' => ',',
-            'fallback'  => '',
-        ], $atts, $tag );
-
-        // Resolve base post id
-        $post_id = (int) $atts['post_id'];
-        if ( $post_id <= 0 ) {
-            $post_id = get_the_ID();
-        }
-        if ( ! $post_id ) {
-            return esc_html( $atts['fallback'] );
-        }
-
-        // Determine which post to read from (self/parent/ancestor)
-        $target_id = $post_id;
-        if ( $atts['from'] === 'parent' || $atts['from'] === 'ancestor' ) {
-            $ancestor = ($atts['from'] === 'parent')
-                ? (int) get_post_field('post_parent', $post_id)
-                : ssseo_city_only_find_nearest_ancestor_with_value( $post_id, $atts['field'] );
-            if ( $ancestor > 0 ) {
-                $target_id = $ancestor;
-            }
-        }
-
-        // Cache key (per post+args)
-        $ckey = 'ssseo_city_only:' . md5( implode('|', [
-            $target_id, $atts['field'], $atts['delimiter']
-        ]) );
-
-        $cached = wp_cache_get( $ckey, 'ssseo' );
-        if ( is_string($cached) ) {
-            return $cached !== '' ? $cached : esc_html( $atts['fallback'] );
-        }
-
-        // 1) Resolve raw city_state (ACF or meta), tolerating arrays
-        $raw = ssseo_city_only_read_field_value( $target_id, $atts['field'] );
-
-        // 2) Parse "City" from raw value
-        $city = ssseo_city_only_parse_city( $raw, $atts['delimiter'] );
-
-        // Allow customization via filter
-        $city = apply_filters( 'ssseo_city_only_output', $city, [
-            'raw'       => $raw,
-            'target_id' => $target_id,
-            'atts'      => $atts
-        ]);
-
-        // Cache (cache even empty string so we don't re-compute)
-        $safe = is_string($city) ? $city : '';
-        wp_cache_set( $ckey, $safe, 'ssseo', 5 * MINUTE_IN_SECONDS );
-
-        if ( $safe === '' ) {
-            return esc_html( $atts['fallback'] );
-        }
-
-        return esc_html( $safe );
-    }
-}
-
-/** Read a field value robustly (ACF unformatted -> formatted -> raw meta). Accept arrays. */
-if ( ! function_exists('ssseo_city_only_read_field_value') ) {
-    function ssseo_city_only_read_field_value( $post_id, $field_name ) {
-        $normalize = function($v) {
-            if ( is_array($v) ) {
-                // Convert array scalars to strings; serialize nested arrays/objects
-                $flat = array_filter(array_map(function($x){
-                    if ( is_scalar($x) ) return (string) $x;
-                    if ( is_array($x) || is_object($x) ) return wp_json_encode($x);
-                    return '';
-                }, $v));
-                return implode(', ', $flat);
-            }
-            return is_scalar($v) ? (string) $v : '';
-        };
-
-        // ACF: unformatted first (more predictable)
-        if ( function_exists('get_field') ) {
-            $v = get_field( $field_name, $post_id, false );
-            $s = $normalize( $v );
-            if ( $s !== '' ) return $s;
-
-            // Then formatted
-            $v2 = get_field( $field_name, $post_id, true );
-            $s2 = $normalize( $v2 );
-            if ( $s2 !== '' ) return $s2;
-        }
-
-        // Raw meta
-        $m = get_post_meta( $post_id, $field_name, true );
-        return $normalize( $m );
-    }
-}
-
-/** Parse the city from a "City, ST" (or "City ST") string. */
-if ( ! function_exists('ssseo_city_only_parse_city') ) {
-    function ssseo_city_only_parse_city( $value, $delimiter = ',' ) {
-        $value = trim( (string) $value );
-        if ( $value === '' ) return '';
-
-        // 1) If delimiter is present, take everything before first delimiter
-        if ( $delimiter !== '' && strpos( $value, $delimiter ) !== false ) {
-            $parts = explode( $delimiter, $value, 2 );
-            return trim( $parts[0] );
-        }
-
-        // 2) Tolerate "City ST" (no comma). If the string ends with a two-letter state, strip it.
-        //    e.g. "San Diego CA" -> "San Diego"
-        if ( preg_match( '/^(.*?)[\s,]+([A-Z]{2})$/', $value, $m ) ) {
-            // Be careful not to cut legit two-letter city names; require space/comma before state
-            $maybe_city = trim( $m[1] );
-            if ( $maybe_city !== '' ) return $maybe_city;
-        }
-
-        // 3) Fallback: return the full string as "city"
-        return $value;
-    }
-}
-
-/** Find nearest ancestor that has a non-empty field value (ACF/meta). */
-if ( ! function_exists('ssseo_city_only_find_nearest_ancestor_with_value') ) {
-    function ssseo_city_only_find_nearest_ancestor_with_value( $post_id, $field_name = 'city_state' ) {
-        $seen = [];
-        $pid  = (int) $post_id;
-        while ( $pid > 0 && ! isset($seen[$pid]) ) {
-            $seen[$pid] = true;
-            $parent_id = (int) get_post_field( 'post_parent', $pid );
-            if ( $parent_id <= 0 ) break;
-
-            $val = ssseo_city_only_read_field_value( $parent_id, $field_name );
-            if ( trim((string)$val) !== '' ) {
-                return $parent_id;
-            }
-            $pid = $parent_id;
-        }
-        return 0;
-    }
-}
-
-// ----- [city_state] shortcode -----------------------------------------------
-// Works with/without ACF. Accepts arrays. Parent/ancestor fallback. Normalization.
-// Attributes:
-//  - post_id:     (int) post id to read from; default current post
-//  - from:        (string) 'self' | 'parent' | 'ancestor'; default 'self'
-//  - field:       (string) field/meta name; default 'city_state'
-//  - delimiter:   (string) expected delimiter between city and state; default ','
-//  - normalize:   (bool/int) when truthy, normalize spacing to "City, ST"; default 0
-//  - state_upper: (bool/int) when truthy, uppercase the state part; default 0
-//  - fallback:    (string) value if nothing found; default ''
-if ( ! function_exists('ssseo_register_city_state_shortcode') ) {
-  add_action('init', 'ssseo_register_city_state_shortcode');
-  function ssseo_register_city_state_shortcode() {
-    add_shortcode('city_state', 'ssseo_shortcode_city_state');
-  }
-}
-
-if ( ! function_exists('ssseo_shortcode_city_state') ) {
-  function ssseo_shortcode_city_state( $atts = [], $content = null, $tag = '' ) {
-    $atts = shortcode_atts([
-      'post_id'     => 0,
-      'from'        => 'self',      // self|parent|ancestor
-      'field'       => 'city_state',
-      'delimiter'   => ',',
-      'normalize'   => 0,
-      'state_upper' => 0,
-      'fallback'    => '',
-    ], $atts, $tag );
-
-    // Resolve base post
-    $post_id = (int) $atts['post_id'];
-    if ( $post_id <= 0 ) {
-      $post_id = get_the_ID();
-    }
-    if ( ! $post_id ) {
-      return esc_html( $atts['fallback'] );
-    }
-
-    // Determine target post (self/parent/ancestor)
-    $target_id = $post_id;
-    if ( $atts['from'] === 'parent' || $atts['from'] === 'ancestor' ) {
-      $ancestor = ($atts['from'] === 'parent')
-        ? (int) get_post_field('post_parent', $post_id)
-        : (int) ssseo_city_value_find_nearest_ancestor_with_value( $post_id, $atts['field'] );
-      if ( $ancestor > 0 ) {
-        $target_id = $ancestor;
-      }
-    }
-
-    // Cache key (per post + params)
-    $ckey = 'ssseo_city_state:' . md5( implode('|', [
-      $target_id, $atts['field'], $atts['delimiter'],
-      (int) !empty($atts['normalize']), (int) !empty($atts['state_upper'])
-    ]) );
-    $cached = wp_cache_get( $ckey, 'ssseo' );
-    if ( is_string($cached) ) {
-      return $cached !== '' ? $cached : esc_html( $atts['fallback'] );
-    }
-
-    // Read value robustly
-    $raw = ssseo_city_value_read_field( $target_id, $atts['field'] );
-    $val = ssseo_city_state_normalize(
-      $raw,
-      $atts['delimiter'],
-      !empty($atts['normalize']),
-      !empty($atts['state_upper'])
-    );
-
-    // Filter for customization
-    $val = apply_filters('ssseo_city_state_output', $val, [
-      'raw'       => $raw,
-      'target_id' => $target_id,
-      'atts'      => $atts,
-    ]);
-
-    $safe = is_string($val) ? trim($val) : '';
-    wp_cache_set( $ckey, $safe, 'ssseo', 5 * MINUTE_IN_SECONDS );
-
-    if ( $safe === '' ) {
-      return esc_html( $atts['fallback'] );
-    }
-    return esc_html( $safe );
-  }
-}
-
-/** Helper: robust field read (ACF unformatted → formatted → raw meta); tolerates arrays. */
-if ( ! function_exists('ssseo_city_value_read_field') ) {
-  function ssseo_city_value_read_field( $post_id, $field_name ) {
-    $normalize_any = function($v){
-      if ( is_array($v) ) {
-        $flat = array_filter(array_map(function($x){
-          if ( is_scalar($x) ) return (string)$x;
-          if ( is_array($x) || is_object($x) ) return wp_json_encode($x);
-          return '';
-        }, $v));
-        return implode(', ', $flat);
-      }
-      return is_scalar($v) ? (string)$v : '';
-    };
-
-    if ( function_exists('get_field') ) {
-      $v = get_field( $field_name, $post_id, false ); // unformatted
-      $s = $normalize_any($v);
-      if ( $s !== '' ) return $s;
-
-      $v2 = get_field( $field_name, $post_id, true ); // formatted
-      $s2 = $normalize_any($v2);
-      if ( $s2 !== '' ) return $s2;
-    }
-
-    $m = get_post_meta( $post_id, $field_name, true );
-    return $normalize_any($m);
-  }
-}
-
-/** Helper: find nearest ancestor with non-empty field value. */
-if ( ! function_exists('ssseo_city_value_find_nearest_ancestor_with_value') ) {
-  function ssseo_city_value_find_nearest_ancestor_with_value( $post_id, $field_name = 'city_state' ) {
-    $seen = [];
-    $pid  = (int) $post_id;
-    while ( $pid > 0 && ! isset($seen[$pid]) ) {
-      $seen[$pid] = true;
-      $parent_id = (int) get_post_field('post_parent', $pid);
-      if ( $parent_id <= 0 ) break;
-      $val = ssseo_city_value_read_field( $parent_id, $field_name );
-      if ( trim((string)$val) !== '' ) return $parent_id;
-      $pid = $parent_id;
-    }
-    return 0;
-  }
-}
-
-/** Helper: normalize "City, ST" formatting & optionally uppercase state. */
-if ( ! function_exists('ssseo_city_state_normalize') ) {
-  function ssseo_city_state_normalize( $value, $delimiter = ',', $do_normalize = false, $state_upper = false ) {
-    $value = trim( (string) $value );
-    if ( $value === '' ) return '';
-
-    // If normalization requested, ensure single space after delimiter.
-    if ( $do_normalize && $delimiter !== '' ) {
-      // Replace any spaces around delimiter with a single ", "
-      $quoted = preg_quote($delimiter, '/');
-      $value  = preg_replace('/\s*' . $quoted . '\s*/', $delimiter . ' ', $value);
-    }
-
-    // Optionally uppercase 2-letter state at end (handles both "City, ST" and "City ST")
-    if ( $state_upper ) {
-      if ( preg_match('/^(.*?)(?:\s*' . preg_quote($delimiter, '/') . '\s*|\s+)([A-Za-z]{2})$/', $value, $m) ) {
-        $city  = rtrim($m[1]);
-        $state = strtoupper($m[2]);
-        $sep   = ($delimiter !== '') ? $delimiter . ' ' : ' ';
-        $value = $city . $sep . $state;
-      }
-    }
-
-    return $value;
-  }
-}
-
-/**
- * Shortcode: [service_area_roots_children]
- * Goal: On ANY page (including Home), list ALL top-level "service_area" posts (post_parent = 0)
- *       and, under each, list their direct children (first level deep).
+ * Shortcode:
+ *   [ssseo_places_status output="boolean|text|badge" refresh="900" fallback="unknown" show_next="1" show_day="abbr"]
  *
- * Usage:
- *   [service_area_roots_children]                                  // show all roots + their children
- *   [service_area_roots_children hide_empty="yes"]                 // skip roots that have no children
- *   [service_area_roots_children wrapper_class="my-custom-class"]  // add classes to outer container
+ * Examples:
+ *   [ssseo_places_status]                          → "true" or "false"
+ *   [ssseo_places_status output="text"]            → "<span class='ssseo-status-open'>Open</span> now – closes 6:00 PM"
+ *                                                    or "<span class='ssseo-status-closed'>Closed</span> now – opens Tue 9:00 AM"
+ *   [ssseo_places_status output="badge"]           → colored badge variant
+ *   [ssseo_places_status refresh="300"]            → cache for 5 minutes
+ *   [ssseo_places_status show_next="0"]            → hide next-opening time when closed
+ *   [ssseo_places_status show_day="full"]          → "… opens Tuesday 9:00 AM" / "… closes Tuesday 6:00 PM"
  *
- * Output:
- *   <div class="container service-areas ...">
- *     <div class="row"><div class="col-lg-12">
- *       <ul class="service-area-roots list-unstyled">
- *         <li class="service-area-root">
- *           <a href="...">Root Title</a>
- *           <ul class="service-area-children list-unstyled">
- *             <li class="service-area-child"><a href="...">Child Title</a></li>
- *             ...
- *           </ul>
- *         </li>
- *         ...
- *       </ul>
- *     </div></div>
- *   </div>
- */
-
-if ( ! defined( 'ABSPATH' ) ) exit;
-
-if ( ! function_exists( 'ssseo_service_area_roots_children_shortcode' ) ) {
-	function ssseo_service_area_roots_children_shortcode( $atts = [] ) {
-		$atts = shortcode_atts( [
-			'hide_empty'   => 'no',  // 'yes' to skip roots with no children
-			'wrapper_class'=> '',    // extra classes for outer wrapper
-		], $atts, 'service_area_roots_children' );
-
-		$hide_empty    = ( 'yes' === strtolower( (string) $atts['hide_empty'] ) );
-		$wrapper_class = trim( preg_replace( '/[^A-Za-z0-9 _-]/', '', (string) $atts['wrapper_class'] ) );
-
-		// 1) Fetch all ROOTS (top-level service_areas)
-		$roots = get_posts( [
-			'post_type'        => 'service_area',
-			'post_status'      => 'publish',
-			'posts_per_page'   => -1,
-			'post_parent'      => 0,           // only top-level
-			'orderby'          => 'title',
-			'order'            => 'ASC',
-			'suppress_filters' => true,
-			'no_found_rows'    => true,
-		] );
-
-		if ( empty( $roots ) ) {
-			return '<p class="service-area-list" style="margin:0;">' . esc_html__( 'No top-level service areas found.', 'ssseo' ) . '</p>';
-		}
-
-		// 2) Fetch ALL first-level children for those roots in a single query, then group by parent
-		$root_ids = wp_list_pluck( $roots, 'ID' );
-
-		$children = get_posts( [
-			'post_type'        => 'service_area',
-			'post_status'      => 'publish',
-			'posts_per_page'   => -1,
-			'post_parent__in'  => array_map( 'intval', $root_ids ),
-			'orderby'          => 'title',
-			'order'            => 'ASC',
-			'suppress_filters' => true,
-			'no_found_rows'    => true,
-		] );
-
-		$children_by_parent = [];
-		foreach ( $children as $child ) {
-			$pid = (int) $child->post_parent;
-			if ( ! isset( $children_by_parent[ $pid ] ) ) {
-				$children_by_parent[ $pid ] = [];
-			}
-			$children_by_parent[ $pid ][] = $child;
-		}
-
-		// 3) Build markup
-		$wrapper_classes = trim( 'container service-areas ' . $wrapper_class );
-		$out  = '<div class="' . esc_attr( $wrapper_classes ) . '"><div class="row">';
-		$out .= '<div class="col-lg-12">';
-		$out .= '<ul class="service-area-list list-unstyled">';
-
-		foreach ( $roots as $root ) {
-			$root_id    = (int) $root->ID;
-			$root_title = get_the_title( $root_id );
-			$root_link  = get_permalink( $root_id );
-
-			// If hide_empty=yes and this root has no children, skip it.
-			$root_children = isset( $children_by_parent[ $root_id ] ) ? $children_by_parent[ $root_id ] : [];
-			if ( $hide_empty && empty( $root_children ) ) {
-				continue;
-			}
-
-			$out .= '<li class="service-area-child">';
-			$out .= '  <i class="fa fa-map-marker ssseo-icon"></i>';
-			$out .= '  <a class="service-area-root-link" href="' . esc_url( $root_link ) . '">' . esc_html( $root_title ) . '</a>';
-			$out .= '</li>';
-
-			// Children list (if any)
-			if ( ! empty( $root_children ) ) {
-				foreach ( $root_children as $child ) {
-					$child_id    = (int) $child->ID;
-					$child_title = get_the_title( $child_id );
-					$child_link  = get_permalink( $child_id );
-
-					$out .= '    <li class="service-area-child">';
-					$out .= '                    <i class="fa fa-map-marker ssseo-icon"></i>';
-					$out .= '      <a class="service-area-link" href="' . esc_url( $child_link ) . '">' . esc_html( $child_title ) . '</a>';
-					$out .= '    </li>';
-				}
-			}
-			
-		}
-
-		$out .= '</ul>';
-		$out .= '</div></div></div>';
-
-		return $out;
-	}
-}
-
-// Register the shortcode
-add_shortcode( 'service_area_roots_children', 'ssseo_service_area_roots_children_shortcode' );
-
-
-/**
- * Shortcode: [service_area_children]
- * Purpose: List direct child Service Areas of the CURRENT Service Area post.
- *          Works on a single service_area page. You can also override the parent via parent_id.
- *
- * Usage:
- *   [service_area_children]                          // on a single service_area → lists its children
- *   [service_area_children parent_id="123"]          // anywhere → lists children of post ID 123
- *   [service_area_children show_parent="yes"]        // include a heading/link to the parent at top
- *   [service_area_children wrapper_class="py-3"]     // add classes to outer wrapper
+ * Reads saved options:
+ *   - ssseo_google_places_api_key
+ *   - ssseo_google_place_id
  *
  * Notes:
- * - Assumes CPT 'service_area' is hierarchical.
- * - Orders children alphabetically by title.
+ * - Server-side only; no frontend AJAX; works for all visitors.
+ * - API response cached via transients.
+ * - Uses Places Details (legacy JSON).
  */
 
-if ( ! defined( 'ABSPATH' ) ) exit;
-
-if ( ! function_exists( 'ssseo_service_area_children_shortcode' ) ) {
-	function ssseo_service_area_children_shortcode( $atts = [] ) {
-		$atts = shortcode_atts( [
-			'parent_id'     => 0,              // optional: force a specific parent ID
-			'orderby'       => 'title',        // title | menu_order | date, etc.
-			'order'         => 'ASC',          // ASC | DESC
-			'show_parent'   => 'no',           // yes | no — show parent heading/link
-			'wrapper_class' => '',             // extra classes for outer wrapper
-			'list_class'    => 'list-unstyled service-area-list',
-			'empty_text'    => 'No service areas found.',
-		], $atts, 'service_area_children' );
-
-		$parent_id     = (int) $atts['parent_id'];
-		$orderby       = sanitize_key( $atts['orderby'] );
-		$order         = ( strtoupper( $atts['order'] ) === 'DESC' ) ? 'DESC' : 'ASC';
-		$show_parent   = ( strtolower( $atts['show_parent'] ) === 'yes' );
-		$wrapper_class = trim( preg_replace( '/[^A-Za-z0-9 _-]/', '', (string) $atts['wrapper_class'] ) );
-		$list_class    = trim( preg_replace( '/[^A-Za-z0-9 _-]/', '', (string) $atts['list_class'] ) );
-		$empty_text    = wp_kses_post( $atts['empty_text'] );
-
-		// Infer parent from context if not given
-		if ( $parent_id <= 0 && is_singular( 'service_area' ) ) {
-			$parent_id = (int) get_the_ID();
-		}
-
-		if ( $parent_id <= 0 ) {
-			return '<!-- [service_area_children]: No parent context available. Provide parent_id or place on a single service_area. -->';
-		}
-
-		// Fetch direct children of $parent_id
-		$children = get_posts( [
-			'post_type'        => 'service_area',
-			'post_status'      => 'publish',
-			'posts_per_page'   => -1,
-			'post_parent'      => $parent_id,
-			'orderby'          => $orderby,
-			'order'            => $order,
-			'no_found_rows'    => true,
-			'suppress_filters' => true,
-		] );
-
-		if ( empty( $children ) ) {
-			return '<p class="service-area-list-empty" style="margin:0;">' . $empty_text . '</p>';
-		}
-
-		$wrapper_classes = trim( 'container service-areas ' . $wrapper_class );
-		$out  = '<div class="' . esc_attr( $wrapper_classes ) . '"><div class="row">';
-		$out .= '<div class="col-lg-12">';
-
-		// Optional parent heading/link
-		if ( $show_parent ) {
-			$parent_title = get_the_title( $parent_id );
-			$parent_link  = get_permalink( $parent_id );
-			$out .= '<div class="service-area-parent mb-2">';
-			$out .= '  <a class="service-area-parent-link fw-semibold" href="' . esc_url( $parent_link ) . '">' . esc_html( $parent_title ) . '</a>';
-			$out .= '</div>';
-		}
-
-		$out .= '<ul class="' . esc_attr( $list_class ) . '">';
-
-		foreach ( $children as $child ) {
-			$child_id    = (int) $child->ID;
-			$child_title = get_the_title( $child_id );
-			$child_link  = get_permalink( $child_id );
-
-			$out .= '<li class="service-area-child">';
-			$out .= '  <i class="fa fa-map-marker ssseo-icon"></i>';
-			$out .= '  <a class="service-area-link" href="' . esc_url( $child_link ) . '">' . esc_html( $child_title ) . '</a>';
-			$out .= '</li>';
-		}
-
-		$out .= '</ul>';
-		$out .= '</div></div></div>';
-
-		return $out;
-	}
-}
-
-add_shortcode( 'service_area_children', 'ssseo_service_area_children_shortcode' );
-
-
-// Remove any older handlers if they exist
 
 /**
- * Helper: compute the Yoast SEO title for a post, with safe fallbacks.
+ * MAIN SHORTCODE: [ssseo_places_status]
  */
-if ( ! function_exists('ssseo_get_yoast_seo_title') ) {
-	function ssseo_get_yoast_seo_title( $post_id = 0 ) {
-		$post_id = $post_id ? (int) $post_id : (int) get_queried_object_id();
-		if ( ! $post_id ) {
-			// Not in a singular context; fall back to site name
-			return get_bloginfo('name');
+if ( ! function_exists('ssseo_places_status_shortcode') ) {
+  function ssseo_places_status_shortcode( $atts ) {
+
+    // ---------- Attributes ----------
+    $atts = shortcode_atts([
+      'output'   => 'boolean', // boolean|text|badge
+      'refresh'  => '900',     // transient lifetime (seconds), min 60
+      'fallback' => 'unknown', // for text/badge when data unavailable
+      'show_next'=> '1',       // when closed, append "– opens …"
+      'show_day' => 'abbr',    // none|abbr|full for weekday label
+    ], $atts, 'ssseo_places_status');
+
+    $output    = strtolower(trim($atts['output']));
+    $refresh   = max(60, (int) $atts['refresh']);
+    $fallback  = (string) $atts['fallback'];
+    $show_next = $atts['show_next'] === '1' || $atts['show_next'] === 'true';
+    $show_day  = in_array($atts['show_day'], ['none','abbr','full'], true) ? $atts['show_day'] : 'abbr';
+
+    // ---------- Options ----------
+    $api_key  = trim((string) get_option('ssseo_google_places_api_key', ''));
+    $place_id = trim((string) get_option('ssseo_google_place_id', ''));
+
+    if ($api_key === '' || $place_id === '') {
+      if ($output === 'boolean') return 'false';
+      return esc_html($fallback);
+    }
+
+    // ---------- Cache ----------
+    $t_key = 'ssseo_places_status_' . md5($place_id);
+    $cached = get_transient($t_key);
+
+    if (is_array($cached) && array_key_exists('open_now', $cached)) {
+      $open_now = $cached['open_now']; // true|false|null
+      $name     = $cached['name'] ?? '';
+      $addr     = $cached['addr'] ?? '';
+      $periods  = $cached['periods'] ?? [];
+    } else {
+      // ---------- Fetch fresh ----------
+      $fields = [
+        'name',
+        'formatted_address',
+        'opening_hours'
+      ];
+
+      $url = add_query_arg([
+        'place_id' => $place_id,
+        'fields'   => implode(',', $fields),
+        'key'      => $api_key,
+      ], 'https://maps.googleapis.com/maps/api/place/details/json');
+
+      $resp = wp_remote_get($url, [
+        'timeout' => 12,
+        'headers' => [ 'Accept' => 'application/json' ],
+      ]);
+
+      $open_now = null;
+      $name = $addr = '';
+      $periods = [];
+
+      if ( ! is_wp_error($resp) ) {
+        $code = wp_remote_retrieve_response_code($resp);
+        $body = wp_remote_retrieve_body($resp);
+        $json = json_decode($body, true);
+
+        if ($code === 200 && is_array($json) && ($json['status'] ?? '') === 'OK') {
+          $res      = $json['result'] ?? [];
+          $name     = $res['name'] ?? '';
+          $addr     = $res['formatted_address'] ?? '';
+          $open_now = $res['opening_hours']['open_now'] ?? null;
+          $periods  = $res['opening_hours']['periods'] ?? [];
+        }
+      }
+
+      set_transient($t_key, [
+        'open_now' => $open_now,
+        'name'     => $name,
+        'addr'     => $addr,
+        'periods'  => $periods,
+        'ts'       => time(),
+      ], $refresh);
+    }
+
+    // ---------- Render per output ----------
+    if ($output === 'boolean') {
+      return ($open_now === true) ? 'true' : 'false';
+    }
+
+    if ($output === 'text' || $output === 'badge') {
+      $label_text = 'Hours unavailable';
+      $class = 'ssseo-hours-unknown';
+
+      if ($open_now === true) {
+        $close_str = ssseo_compute_current_closing_label($periods, $show_day);
+        // Style only the word "Open" as green
+        $label_text = '<span class="ssseo-status-open">Open</span> ' . esc_html__('now', 'ssseo');
+        if ($close_str) {
+          $label_text .= ' – ' . esc_html__('closes', 'ssseo') . ' ' . esc_html($close_str);
+        }
+        $class = 'ssseo-open-badge';
+
+      } elseif ($open_now === false) {
+        $next_str = $show_next ? ssseo_compute_next_open_label($periods, $show_day) : '';
+        // Style only the word "Closed" as red
+        $label_text = '<span class="ssseo-status-closed">Closed</span> ' . esc_html__('now', 'ssseo');
+        if ($next_str) {
+          $label_text .= ' – ' . esc_html__('opens', 'ssseo') . ' ' . esc_html($next_str);
+        }
+        $class = 'ssseo-closed-badge';
+      }
+
+      if ($output === 'badge') {
+        $aria = $name ? ' aria-label="'.esc_attr($name.' status: '.wp_strip_all_tags($label_text)).'"' : '';
+        return '<span class="'.esc_attr($class).'"'.$aria.'>'.$label_text.'</span>';
+      }
+
+      // output=text (HTML with just the status word colored)
+      return $label_text;
+    }
+
+    return esc_html($fallback);
+  }
+  add_shortcode('ssseo_places_status', 'ssseo_places_status_shortcode');
+}
+
+/**
+ * Compute the next opening time label using Places "periods" (weekly schedule).
+ *
+ * @param array  $periods  opening_hours.periods
+ * @param string $show_day 'none'|'abbr'|'full'
+ * @return string e.g. "Tue 9:00 AM" / "tomorrow 9:00 AM"
+ */
+if ( ! function_exists('ssseo_compute_next_open_label') ) {
+  function ssseo_compute_next_open_label(array $periods, $show_day = 'abbr') {
+    if (empty($periods)) return '';
+
+    $now_ts  = current_time('timestamp');
+    $now_w   = (int) date('w', $now_ts);
+    $now_Hi  = (int) date('Hi', $now_ts);
+    $now_y   = (int) date('Y', $now_ts);
+    $now_m   = (int) date('n', $now_ts);
+    $now_d   = (int) date('j', $now_ts);
+
+    $norm = [];
+    foreach ($periods as $p) {
+      if (empty($p['open']['day']) || empty($p['open']['time'])) continue;
+      $od = (int) $p['open']['day'];
+      $ot = (string) $p['open']['time'];
+      $cd = isset($p['close']['day'])  ? (int) $p['close']['day']  : null;
+      $ct = isset($p['close']['time']) ? (string) $p['close']['time'] : null;
+      $norm[] = [$od, $ot, $cd, $ct];
+    }
+    if (empty($norm)) return '';
+
+    $best_ts = null;
+
+    for ($i = 0; $i <= 7; $i++) {
+      $day_idx = ($now_w + $i) % 7;
+
+      foreach ($norm as [$od, $ot, $cd, $ct]) {
+        if ($od !== $day_idx) continue;
+        if ($i === 0 && (int) $ot <= $now_Hi) continue;
+
+        $open_hour = (int) substr($ot, 0, 2);
+        $open_min  = (int) substr($ot, 2, 2);
+
+        $open_ts = mktime($open_hour, $open_min, 0, $now_m, $now_d + $i, $now_y);
+
+        if ($best_ts === null || $open_ts < $best_ts) {
+          $best_ts = $open_ts;
+        }
+      }
+      if ($i === 0 && $best_ts !== null) break;
+    }
+
+    if ($best_ts === null) return '';
+
+    $today_start = strtotime('today', $now_ts);
+    $diff_days   = (int) floor( ($best_ts - $today_start) / DAY_IN_SECONDS );
+    $prefix = '';
+
+    if ($show_day === 'none') {
+      $prefix = '';
+    } else {
+      if ($diff_days === 0) {
+        $prefix = __('today', 'ssseo') . ' ';
+      } elseif ($diff_days === 1) {
+        $prefix = __('tomorrow', 'ssseo') . ' ';
+      } else {
+        $fmt = $show_day === 'full' ? 'l' : 'D';
+        $prefix = date_i18n($fmt, $best_ts) . ' ';
+      }
+    }
+
+    $time_str = date_i18n('g:i A', $best_ts);
+    return trim($prefix . $time_str);
+  }
+}
+
+/**
+ * Compute the *current* closing time label if we are presently within one of the open periods.
+ * Handles overnight intervals where close.day != open.day.
+ *
+ * @param array  $periods  opening_hours.periods
+ * @param string $show_day 'none'|'abbr'|'full'
+ * @return string e.g. "6:00 PM" / "tomorrow 1:00 AM" / "Tue 6:00 PM"
+ */
+if ( ! function_exists('ssseo_compute_current_closing_label') ) {
+  function ssseo_compute_current_closing_label(array $periods, $show_day = 'abbr') {
+    if (empty($periods)) return '';
+
+    $now_ts   = current_time('timestamp');
+    $now_w    = (int) date('w', $now_ts);
+    $today_start = strtotime('today', $now_ts);
+
+    // Normalize
+    $norm = [];
+    foreach ($periods as $p) {
+      if (empty($p['open']['day']) || empty($p['open']['time'])) continue;
+      if (!isset($p['close']['day'], $p['close']['time'])) continue; // need a close to compute
+      $od = (int) $p['open']['day'];
+      $ot = (string) $p['open']['time'];
+      $cd = (int) $p['close']['day'];
+      $ct = (string) $p['close']['time'];
+      $norm[] = [$od, $ot, $cd, $ct];
+    }
+    if (empty($norm)) return '';
+
+    $build_ts = function($base_ts, $offset_days, $HHMM) {
+      $h = (int) substr($HHMM, 0, 2);
+      $m = (int) substr($HHMM, 2, 2);
+      return mktime($h, $m, 0,
+        (int) date('n', $base_ts),
+        (int) date('j', $base_ts) + $offset_days,
+        (int) date('Y', $base_ts)
+      );
+    };
+
+    $active_close = null;
+
+    // Scan yesterday..next 7 days to catch overnight windows
+    for ($k = -1; $k <= 7; $k++) {
+      $scan_day_w = (int) date('w', $today_start + $k * DAY_IN_SECONDS);
+
+      foreach ($norm as [$od, $ot, $cd, $ct]) {
+        if ($scan_day_w !== $od) continue;
+
+        $open_ts  = $build_ts($today_start, $k, $ot);
+        $day_diff = ($cd - $od + 7) % 7;
+        $close_ts = $build_ts($open_ts, $day_diff, $ct);
+
+        if ($close_ts <= $open_ts) {
+          $close_ts += 7 * DAY_IN_SECONDS;
+        }
+
+        if ($now_ts >= $open_ts && $now_ts < $close_ts) {
+          $active_close = $close_ts;
+          break 2;
+        }
+      }
+    }
+
+    if ($active_close === null) return '';
+
+    $diff_days = (int) floor( ($active_close - $today_start) / DAY_IN_SECONDS );
+    $prefix = '';
+    if ($show_day === 'none' || $diff_days === 0) {
+      $prefix = '';
+    } else {
+      if ($diff_days === 1) {
+        $prefix = __('tomorrow', 'ssseo') . ' ';
+      } else {
+        $fmt = $show_day === 'full' ? 'l' : 'D';
+        $prefix = date_i18n($fmt, $active_close) . ' ';
+      }
+    }
+
+    $time_str = date_i18n('g:i A', $active_close);
+    return trim($prefix . $time_str);
+  }
+}
+
+/**
+ * Styles:
+ * - .ssseo-status-open   → green text (only the word "Open")
+ * - .ssseo-status-closed → red text (only the word "Closed")
+ * - badge styles kept from earlier implementation
+ */
+if ( ! function_exists('ssseo_places_badge_css') ) {
+  function ssseo_places_badge_css() {
+    $css = '
+    /* Word-only coloring for text output */
+    .ssseo-status-open{ color:green; font-weight:600; }
+    .ssseo-status-closed{ color:red; font-weight:600; }
+
+    /* Badge variants (unchanged) */
+    .ssseo-open-badge{display:inline-block;padding:.15rem .5rem;border-radius:.35rem;font-weight:600;background:#e7f7ec;color:#1e7e34;border:1px solid #cfead7}
+    .ssseo-closed-badge{display:inline-block;padding:.15rem .5rem;border-radius:.35rem;font-weight:600;background:#fdeeee;color:#b02a37;border:1px solid #f5c2c7}
+    .ssseo-hours-unknown{display:inline-block;padding:.15rem .5rem;border-radius:.35rem;font-weight:600;background:#eef2f7;color:#495057;border:1px solid #d0d7e2}
+    ';
+    wp_register_style('ssseo-places-badge', false);
+    wp_enqueue_style('ssseo-places-badge');
+    wp_add_inline_style('ssseo-places-badge', $css);
+  }
+  add_action('wp_enqueue_scripts', 'ssseo_places_badge_css');
+}
+
+/**
+ * (Optional) Tiny alias for boolean-only use:
+ *   [gbp_open_now] → "true"|"false"
+ */
+if ( ! function_exists('ssseo_gbp_open_now_alias') ) {
+  function ssseo_gbp_open_now_alias($atts) {
+    $atts = shortcode_atts(['refresh' => '900'], $atts, 'gbp_open_now');
+    return do_shortcode('[ssseo_places_status output="boolean" refresh="'.intval($atts['refresh']).'"]');
+  }
+  add_shortcode('gbp_open_now', 'ssseo_gbp_open_now_alias');
+}
+
+
+/**
+ * Shortcode: [gmb_hours place_id="YOUR_PLACE_ID"]
+ *
+ * Footer-friendly hours list pulled from Google Places Details API.
+ * - Uses the plugin’s saved Google key (via ssseo_get_google_places_api_key()).
+ * - Renders compact markup ideal for a footer/widget.
+ *
+ * Attributes:
+ *  - place_id          (string, REQUIRED)  Google Place ID for the business
+ *  - show              (string, optional)  "week" (default) or "today"
+ *  - show_today_first  (0|1, optional)     Reorder so today is first (default 0)
+ *  - highlight_today   (0|1, optional)     Add .today class to today’s row (default 1)
+ *  - compact           (0|1, optional)     Adds small, muted classes (default 1)
+ *  - class             (string, optional)  Extra classes on wrapper <div> (default "")
+ *  - list_class        (string, optional)  Extra classes on the <ul class="hours-list"> (default "")
+ *  - cache             (int, optional)     Cache minutes (default 60)
+ *  - debug             (0|1, optional)     Show API errors (default 0)
+ *
+ * Examples:
+ *   [gmb_hours place_id="ChIJxxxxxxxxxxxx"]
+ *   [gmb_hours place_id="ChIJxxxxxxxxxxxx" show="today"]
+ *   [gmb_hours place_id="ChIJxxxxxxxxxxxx" show="week" show_today_first="1" highlight_today="1"]
+ *   [gmb_hours place_id="ChIJxxxxxxxxxxxx" list_class="my-custom-ul gap-1"]
+ */
+if ( ! function_exists( 'ssseo_gmb_hours_shortcode' ) ) {
+	function ssseo_gmb_hours_shortcode( $atts ) {
+		$atts = shortcode_atts(
+			[
+				'place_id'         => '',
+				'show'             => 'week', // 'week' or 'today'
+				'show_today_first' => '0',
+				'highlight_today'  => '1',
+				'compact'          => '1',
+				'class'            => '',     // wrapper extra classes
+				'list_class'       => '',     // NEW: <ul> extra classes
+				'cache'            => '60',
+				'debug'            => '0',
+			],
+			$atts,
+			'gmb_hours'
+		);
+
+		$place_id         = trim( (string) $atts['place_id'] );
+		$show             = strtolower( trim( (string) $atts['show'] ) );
+		$show_today_first = $atts['show_today_first'] === '1';
+		$highlight_today  = $atts['highlight_today'] === '1';
+		$compact          = $atts['compact'] === '1';
+		$extra_class      = trim( (string) $atts['class'] );
+		$list_extra_class = trim( (string) $atts['list_class'] ); // NEW
+		$cache_min        = max( 0, (int) $atts['cache'] );
+		$debug            = $atts['debug'] === '1';
+
+		if ( $place_id === '' ) {
+			return '<div class="gmb-hours error small text-danger">Missing place_id</div>';
 		}
 
-		// If Yoast isn't active, just return the native title.
-		if ( ! function_exists('wpseo_replace_vars') ) {
-			return get_the_title( $post_id );
+		// 🔑 Get Google key from SSSEO Tools options (helper defined below if not already).
+		if ( ! function_exists( 'ssseo_get_google_places_api_key' ) ) {
+			function ssseo_get_google_places_api_key(): string {
+				$candidates = [
+					'ssseo_google_places_api_key',
+					'ssseo_google_api_key',
+					'ssseo_google_static_maps_api_key',
+				];
+				foreach ( $candidates as $opt ) {
+					$val = trim( (string) get_option( $opt, '' ) );
+					if ( $val !== '' ) {
+						return (string) apply_filters( 'ssseo_google_places_api_key', $val, $opt );
+					}
+				}
+				if ( defined( 'SSSEO_GOOGLE_API_KEY' ) && SSSEO_GOOGLE_API_KEY ) {
+					return (string) apply_filters( 'ssseo_google_places_api_key', SSSEO_GOOGLE_API_KEY, 'constant' );
+				}
+				return (string) apply_filters( 'ssseo_google_places_api_key', '', 'none' );
+			}
+		}
+		$api_key = ssseo_get_google_places_api_key();
+		if ( $api_key === '' ) {
+			return '<div class="gmb-hours error small text-danger">Missing Google API key (Places). Save it in SSSEO Tools settings.</div>';
 		}
 
-		// 1) Per-post Yoast title template (raw, may contain %%vars%%)
-		$template = (string) get_post_meta( $post_id, '_yoast_wpseo_title', true );
-
-		// 2) If empty, try Yoast global template for this post type
-		if ( $template === '' ) {
-			$opts = (array) get_option('wpseo_titles', []);
-			$pt   = get_post_type( $post_id );
-			$key  = "post_types-{$pt}-title"; // Yoast option key format
-			if ( ! empty( $opts[$key] ) ) {
-				$template = (string) $opts[$key];
+		// 🧠 Cache
+		$transient_key = 'ssseo_gmb_hours_' . md5( $place_id );
+		if ( $cache_min > 0 ) {
+			$cached = get_transient( $transient_key );
+			if ( is_array( $cached ) ) {
+				return ssseo_render_hours_box(
+					$cached,
+					compact( 'show', 'show_today_first', 'highlight_today', 'compact', 'extra_class', 'list_extra_class' )
+				);
 			}
 		}
 
-		// 3) Final fallback template
-		if ( $template === '' ) {
-			$template = '%%title%% %%page%% %%sep%% %%sitename%%';
+		// 📡 Request: ask for both opening_hours and current_opening_hours (some places return one or the other).
+		$url = add_query_arg(
+			[
+				'place_id' => $place_id,
+				'fields'   => 'opening_hours,current_opening_hours',
+				'key'      => $api_key,
+			],
+			'https://maps.googleapis.com/maps/api/place/details/json'
+		);
+
+		$response = wp_remote_get( $url, [ 'timeout' => 10 ] );
+		if ( is_wp_error( $response ) ) {
+			return $debug
+				? '<div class="gmb-hours error small text-danger">HTTP error: ' . esc_html( $response->get_error_message() ) . '</div>'
+				: '<div class="gmb-hours error small text-danger">Service unavailable</div>';
 		}
 
-		// Expand Yoast variables using the WP_Post object
-		$post = get_post( $post_id );
-		$title = wpseo_replace_vars( $template, $post );
+		$code = wp_remote_retrieve_response_code( $response );
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
 
-		// As a last resort, ensure we don't return empty
-		if ( ! is_string($title) || $title === '' ) {
-			$title = get_the_title( $post_id );
+		if ( $code !== 200 || ! is_array( $data ) ) {
+			return $debug
+				? '<div class="gmb-hours error small text-danger">Bad HTTP: ' . esc_html( (string) $code ) . '</div>'
+				: '<div class="gmb-hours error small text-danger">Service error</div>';
 		}
 
-		return $title;
+		$status = $data['status'] ?? 'UNKNOWN';
+		if ( $status !== 'OK' ) {
+			$err = $data['error_message'] ?? 'API error';
+			return $debug
+				? '<div class="gmb-hours error small text-danger">API error: ' . esc_html( $status . ' - ' . $err ) . '</div>'
+				: '<div class="gmb-hours error small text-danger">Service error</div>';
+		}
+
+		// Prefer current_opening_hours if present (reflects special hours), else opening_hours.
+		$hours = $data['result']['current_opening_hours'] ?? $data['result']['opening_hours'] ?? [];
+		$weekday_text = isset( $hours['weekday_text'] ) && is_array( $hours['weekday_text'] )
+			? $hours['weekday_text']
+			: [];
+
+		$normalized = [
+			'weekday_text' => $weekday_text, // array like ["Monday: 9 AM–5 PM", ...]
+		];
+
+		if ( $cache_min > 0 ) {
+			set_transient( $transient_key, $normalized, $cache_min * MINUTE_IN_SECONDS );
+		}
+
+		return ssseo_render_hours_box(
+			$normalized,
+			compact( 'show', 'show_today_first', 'highlight_today', 'compact', 'extra_class', 'list_extra_class' )
+		);
 	}
+	add_shortcode( 'gmb_hours', 'ssseo_gmb_hours_shortcode' );
 }
 
 /**
- * Shortcode: [yoast_title], alias: [seo_title]
- *  - post_id (int) optional
- *  - wrap (0|1) optional: wrap in <span class="yoast-title">
- *  - before / after (string) optional
+ * Renderer for compact hours box.
+ *
+ * @param array $data ['weekday_text' => [ "Monday: …", … ]]
+ * @param array $opts ['show','show_today_first','highlight_today','compact','extra_class','list_extra_class']
+ * @return string HTML
  */
-function ssseo_yoast_title_shortcode( $atts = [] ) {
-	$a = shortcode_atts( [
-		'post_id' => '',
-		'wrap'    => '0',
-		'before'  => '',
-		'after'   => '',
-	], $atts, 'yoast_title' );
+if ( ! function_exists( 'ssseo_render_hours_box' ) ) {
+	function ssseo_render_hours_box( array $data, array $opts ): string {
+		$weekday_text     = is_array( $data['weekday_text'] ?? null ) ? $data['weekday_text'] : [];
+		$show             = $opts['show'] ?? 'week';
+		$show_today_first = (bool) ( $opts['show_today_first'] ?? false );
+		$highlight_today  = (bool) ( $opts['highlight_today']  ?? true );
+		$compact          = (bool) ( $opts['compact'] ?? true );
+		$extra_class      = trim( (string) ( $opts['extra_class'] ?? '' ) );
+		$list_extra_class = trim( (string) ( $opts['list_extra_class'] ?? '' ) ); // NEW
 
-	$post_id = (int) $a['post_id'];
-	$title   = ssseo_get_yoast_seo_title( $post_id );
+		// Wrapper classes
+		$wrapper_classes = [ 'gmb-hours' ];
+		if ( $compact ) {
+			$wrapper_classes[] = 'small';
+			$wrapper_classes[] = 'text-muted';
+		}
+		if ( $extra_class !== '' ) {
+			$wrapper_classes = array_merge( $wrapper_classes, preg_split( '/\s+/', $extra_class ) );
+		}
+		$wrapper_classes = array_values( array_filter( array_unique( $wrapper_classes ) ) );
+		$wrapper_classes = apply_filters( 'ssseo_gmb_hours_wrapper_classes', $wrapper_classes, $opts, $data );
 
-	$out = $a['before'] . $title . $a['after'];
-	if ( $a['wrap'] === '1' ) {
-		$out = '<span class="yoast-title">' . esc_html( $out ) . '</span>';
-	} else {
-		$out = esc_html( $out );
+		// Build associative array Day => Hours string. Google returns Monday..Sunday.
+		$week = [];
+		foreach ( $weekday_text as $line ) {
+			if ( strpos( $line, ':' ) !== false ) {
+				[ $day, $hours ] = array_map( 'trim', explode( ':', $line, 2 ) );
+				$week[ $day ] = $hours;
+			}
+		}
+
+		if ( empty( $week ) ) {
+			return '<div class="' . esc_attr( implode( ' ', $wrapper_classes ) ) . '"><em>Hours unavailable</em></div>';
+		}
+
+		// Local today label (English day to match Google's output)
+		$today_label = wp_date( 'l' ); // e.g., "Tuesday"
+
+		// Optionally reorder so today appears first
+		if ( $show === 'week' && $show_today_first && isset( $week[ $today_label ] ) ) {
+			$today_pair = [ $today_label => $week[ $today_label ] ];
+			unset( $week[ $today_label ] );
+			$week = $today_pair + $week; // Today first, then rest
+		}
+
+		// UL classes (includes fixed 'hours-list' plus any extra classes passed in)
+		$ul_classes = [ 'list-unstyled', 'mb-0', 'hours-list' ];
+		if ( $list_extra_class !== '' ) {
+			$ul_classes = array_merge( $ul_classes, preg_split( '/\s+/', $list_extra_class ) );
+		}
+		$ul_classes = array_values( array_filter( array_unique( $ul_classes ) ) );
+		$ul_classes = apply_filters( 'ssseo_gmb_hours_ul_classes', $ul_classes, $opts, $data ); // NEW filter
+
+		// Render
+		ob_start();
+		echo '<div class="' . esc_attr( implode( ' ', $wrapper_classes ) ) . '">';
+
+		if ( $show === 'today' ) {
+			$today_hours = $week[ $today_label ] ?? '';
+			$today_hours = $today_hours === '' ? 'Closed' : $today_hours;
+			echo '<div class="today-hours"><strong>Today:</strong> ' . esc_html( $today_hours ) . '</div>';
+			echo '</div>';
+			return ob_get_clean();
+		}
+
+		// Full week list
+		echo '<ul class="' . esc_attr( implode( ' ', $ul_classes ) ) . '">';
+		foreach ( $week as $day => $hours ) {
+			$is_today = ( $day === $today_label );
+			$li_class = $is_today && $highlight_today ? ' class="today fw-semibold"' : '';
+			echo '<li' . $li_class . '>';
+			echo '<span class="day">' . esc_html( $day ) . ':</span> ';
+			echo '<span class="hours">' . esc_html( $hours ?: 'Closed' ) . '</span>';
+			echo '</li>';
+		}
+		echo '</ul>';
+		echo '</div>';
+
+		return ob_get_clean();
 	}
-
-	return $out;
 }
-add_shortcode( 'yoast_title', 'ssseo_yoast_title_shortcode' );
-add_shortcode( 'seo_title',   'ssseo_yoast_title_shortcode' );
+
+//Deprecated, Preserve to work with old shortcodes
+//
+function service_area_list_shortcode() {
+    // Get the current post ID
+    if (is_singular('service_area')) {
+        $current_post_id = get_the_ID();
+    } else {
+        $current_post_id = 0;
+    }
+
+   // Query for 'service_area' posts with post_parent of '0' and alphabetize the post listing
+$args = array(
+    'post_type'      => 'service_area',
+    'post_parent'    => 0,
+    'posts_per_page' => -1,
+    'orderby'        => 'title',  // Order by the title
+    'order'          => 'ASC',    // Order in ascending order
+);
+
+    // Exclude the current post if on a service_area post page
+    if ($current_post_id) {
+        $args['post__not_in'] = array($current_post_id);
+    }
+
+    $service_areas = new WP_Query($args);
+
+    // Check if there are any posts
+    if ($service_areas->have_posts()) {
+        // Initialize output variable
+        $output = '<div class="container service-areas"><div class="row">';
+        $output .= '<div class="col-lg-12">';
+        $output .= '<ul class="list-unstyled service-area-list">';
+
+        // Loop through posts and build the list items
+        while ($service_areas->have_posts()) {
+            $service_areas->the_post();
+            $output .= '
+                <li>
+                    <i class="fa fa-map-marker ssseo-icon"></i>
+                    <a href="' . get_permalink() . '" class="service-area-link">' . get_the_title() . '</a>
+                </li>';
+        }
+
+        $output .= '</ul></div></div></div>';
+
+        // Reset post data
+        wp_reset_postdata();
+
+        return $output;
+    } else {
+        return '<p>No service areas found.</p>';
+    }
+}
+
+// Register the shortcode
+add_shortcode('service_area_list', 'service_area_list_shortcode');
