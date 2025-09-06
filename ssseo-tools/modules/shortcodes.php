@@ -1,3 +1,4 @@
+<?php
 /**
  * SSSEO Tools – Google Places "Open Now" Shortcode
  * (shows next opening when closed, closing time when open)
