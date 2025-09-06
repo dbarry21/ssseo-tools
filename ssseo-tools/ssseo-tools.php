@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SSSEO Tools
  * Description: Modular plugin for SEO and content enhancements.
- * Version: 3.2
+ * Version: 3.5
  * Author: Dave Barry
  * Text Domain: ssseo
  */
@@ -21,6 +21,7 @@ require_once __DIR__ . '/modules/cpt-registration.php';
 require_once __DIR__ . '/modules/shortcodes.php';
 require_once __DIR__ . '/modules/shortcodes-card-grid.php';
 require_once __DIR__ . '/modules/filters.php';
+require_once __DIR__ . '/modules/social-sharing.php';
 
 require_once __DIR__ . '/modules/map-as-featured.php';
 require_once __DIR__ . '/modules/map-embed-shortcode.php';
@@ -558,3 +559,78 @@ add_action('admin_enqueue_scripts', function () {
   $ver  = file_exists($path) ? filemtime($path) : '1.0.0';
   wp_enqueue_style('ssseo-tools-admin', ssseo_assets_url($rel), [], $ver);
 });
+
+
+add_action( 'acf/include_fields', function() {
+	if ( ! function_exists( 'acf_add_local_field_group' ) ) {
+		return;
+	}
+
+	acf_add_local_field_group( array(
+	'key' => 'group_673eb878db87c',
+	'title' => 'Service Area',
+	'fields' => array(
+		array(
+			'key' => 'field_673eb8877610b',
+			'label' => 'City, State',
+			'name' => 'city_state',
+			'aria-label' => '',
+			'type' => 'text',
+			'instructions' => '',
+			'required' => 0,
+			'conditional_logic' => 0,
+			'wrapper' => array(
+				'width' => '',
+				'class' => '',
+				'id' => '',
+			),
+			'default_value' => '',
+			'maxlength' => '',
+			'allow_in_bindings' => 1,
+			'placeholder' => '',
+			'prepend' => '',
+			'append' => '',
+		),
+		array(
+			'key' => 'field_68b935726ec39',
+			'label' => 'HTML Excerpt',
+			'name' => 'html_excerpt',
+			'aria-label' => '',
+			'type' => 'wysiwyg',
+			'instructions' => '',
+			'required' => 0,
+			'conditional_logic' => 0,
+			'wrapper' => array(
+				'width' => '',
+				'class' => '',
+				'id' => '',
+			),
+			'default_value' => '',
+			'allow_in_bindings' => 0,
+			'tabs' => 'all',
+			'toolbar' => 'full',
+			'media_upload' => 1,
+			'delay' => 0,
+		),
+	),
+	'location' => array(
+		array(
+			array(
+				'param' => 'post_type',
+				'operator' => '==',
+				'value' => 'service_area',
+			),
+		),
+	),
+	'menu_order' => 0,
+	'position' => 'normal',
+	'style' => 'default',
+	'label_placement' => 'top',
+	'instruction_placement' => 'label',
+	'hide_on_screen' => '',
+	'active' => true,
+	'description' => '',
+	'show_in_rest' => 0,
+) );
+} );
+

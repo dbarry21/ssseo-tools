@@ -341,108 +341,6 @@ function custom_blog_cards_shortcode( $atts ) {
 add_shortcode( 'custom_blog_cards', 'custom_blog_cards_shortcode' );
 
 
-/**
- * Social Sharing Shortcode with Bootstrap Icons + Modal
- * Usage: [social_share]
- */
-
-if (!defined('ABSPATH')) exit;
-
-add_action('wp_enqueue_scripts', function () {
-    // Load Bootstrap CSS
-    wp_enqueue_style('bootstrap-css', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css');
-
-    // ✅ Load Bootstrap Icons
-    wp_enqueue_style('bootstrap-icons', 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css');
-
-    // Load Bootstrap JS
-    wp_enqueue_script('bootstrap-js', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js', [], null, true);
-});
-
-
-// Register Shortcode
-add_shortcode('social_share', 'ssseo_social_sharing_shortcode');
-
-function ssseo_social_sharing_shortcode($atts) {
-    ob_start();
-
-    $share_url   = urlencode(get_permalink());
-    $share_title = urlencode(get_the_title());
-
-    ?>
-<style>
-  .modal-dialog {
-    margin: 1.75rem auto;
-  }
-
-  .modal-content {
-    padding: 1rem;
-  }
-
-  .btn-outline-* {
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-</style>
-
-    <!-- Trigger Button -->
-    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#socialShareModal">
-        <i class="bi bi-share-fill"></i> Share
-    </button>
-
-    <!-- Modal -->
-<div class="modal fade" id="socialShareModal" tabindex="-1" aria-labelledby="socialShareModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" style="max-width: 400px;"> <!-- ✅ limit modal width -->
-    <div class="modal-content rounded-4 shadow">
-      <div class="modal-header">
-        <h5 class="modal-title" id="socialShareModalLabel">Share This Page</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-
-      <div class="modal-body text-center">
-        <p class="mb-3">Choose a platform:</p>
-
-        <!-- ✅ Tighter icon layout -->
-        <div class="d-flex justify-content-center flex-wrap gap-2">
-          <a class="btn btn-outline-primary" href="https://www.facebook.com/sharer/sharer.php?u=<?= $share_url ?>" target="_blank" title="Facebook" data-bs-toggle="tooltip">
-            <i class="bi bi-facebook fs-4"></i>
-          </a>
-          <a class="btn btn-outline-info" href="https://twitter.com/intent/tweet?text=<?= $share_title ?>&url=<?= $share_url ?>" target="_blank" title="Twitter/X" data-bs-toggle="tooltip">
-            <i class="bi bi-twitter-x fs-4"></i>
-          </a>
-          <a class="btn btn-outline-success" href="https://api.whatsapp.com/send?text=<?= $share_title ?>%20<?= $share_url ?>" target="_blank" title="WhatsApp" data-bs-toggle="tooltip">
-            <i class="bi bi-whatsapp fs-4"></i>
-          </a>
-          <a class="btn btn-outline-danger" href="mailto:?subject=<?= $share_title ?>&body=<?= $share_url ?>" target="_blank" title="Email" data-bs-toggle="tooltip">
-            <i class="bi bi-envelope-fill fs-4"></i>
-          </a>
-          <button class="btn btn-outline-secondary" onclick="navigator.clipboard.writeText('<?= get_permalink() ?>'); this.innerHTML='<i class=\'bi bi-clipboard-check-fill\'></i>';" title="Copy Link" data-bs-toggle="tooltip">
-            <i class="bi bi-clipboard fs-4"></i>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-    <!-- Tooltip Activation -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-        });
-    </script>
-    <?php
-
-    return ob_get_clean();
-}
-
 add_shortcode('about_the_area', 'ssseo_shortcode_about_the_area');
 function ssseo_shortcode_about_the_area($atts) {
     global $post;
@@ -452,51 +350,7 @@ function ssseo_shortcode_about_the_area($atts) {
     return wpautop(do_shortcode($content));
 }
 
-/**
- * Shortcode: [service_grid]
- * Displays 'service' posts in a responsive Bootstrap grid.
- * Each service is wrapped in a div with class 'service-box'.
- */
-function ssseo_service_grid_shortcode() {
-    ob_start();
 
-    $services = new WP_Query([
-        'post_type'      => 'service',
-        'posts_per_page' => -1,
-        'post_status'    => 'publish',
-    ]);
-
-    if ( $services->have_posts() ) :
-        echo '<div class="row">';
-
-        while ( $services->have_posts() ) : $services->the_post();
-            $post_id    = get_the_ID();
-            $title      = get_the_title();
-            $permalink  = get_permalink();
-            $thumb_url  = get_the_post_thumbnail_url( $post_id, 'large' );
-
-            echo '<div class="col-md-6 col-lg-3 mb-4">';
-            echo '<div class="service-box h-100">';
-
-            if ( $thumb_url ) {
-                echo '<a href="' . esc_url( $permalink ) . '">';
-                echo '<img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $title ) . '" class="img-fluid mb-3 rounded">';
-                echo '</a>';
-            }
-
-            echo '<h4><a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a></h4>';
-            echo '</div></div>';
-        endwhile;
-
-        echo '</div>';
-        wp_reset_postdata();
-    else :
-        echo '<p>No services found.</p>';
-    endif;
-
-    return ob_get_clean();
-}
-add_shortcode( 'service_grid', 'ssseo_service_grid_shortcode' );
 
 // [city_only] – extract the "City" part from an ACF/meta "city_state" field.
 // Attributes:
@@ -511,6 +365,90 @@ if ( ! function_exists('ssseo_register_city_only_shortcode') ) {
         add_shortcode('city_only', 'ssseo_shortcode_city_only');
     }
 }
+
+function ssseo_service_grid_shortcode_v2( $atts = [] ) {
+    $a = shortcode_atts( [
+        'posts_per_page' => -1,
+        'orderby'        => 'menu_order title',
+        'order'          => 'ASC',
+        'row_class'      => 'row',
+        'col_class'      => 'col-md-6 col-lg-3 mb-4',
+        'box_class'      => 'service-box h-100',
+        'image_size'     => 'large',
+
+        // New bits
+        'button'         => '1',
+        'button_text'    => 'Learn More',
+        'button_class'   => 'btn btn-primary mt-2',
+        'button_target'  => '',           // e.g. _blank
+        'button_rel'     => '',           // e.g. nofollow
+
+        'show_excerpt'   => '0',
+        'excerpt_words'  => '20',
+    ], $atts, 'service_grid' );
+
+    // Query services
+    $q = new WP_Query( [
+        'post_type'      => 'service',
+        'posts_per_page' => intval( $a['posts_per_page'] ),
+        'post_status'    => 'publish',
+        'orderby'        => $a['orderby'],
+        'order'          => $a['order'],
+        'no_found_rows'  => true,
+    ] );
+
+    ob_start();
+
+    if ( $q->have_posts() ) {
+        echo '<div class="' . esc_attr( $a['row_class'] ) . '">';
+
+        while ( $q->have_posts() ) {
+            $q->the_post();
+            $post_id   = get_the_ID();
+            $title     = get_the_title();
+            $permalink = get_permalink();
+            $thumb_url = get_the_post_thumbnail_url( $post_id, $a['image_size'] );
+
+            echo '<div class="' . esc_attr( $a['col_class'] ) . '">';
+            echo   '<div class="' . esc_attr( $a['box_class'] ) . '">';
+
+            if ( $thumb_url ) {
+                echo '<a href="' . esc_url( $permalink ) . '">';
+                echo '<img src="' . esc_url( $thumb_url ) . '" alt="' . esc_attr( $title ) . '" class="img-fluid mb-3 rounded" loading="lazy">';
+                echo '</a>';
+            }
+
+            echo '<h4 class="mb-2"><a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a></h4>';
+
+            if ( $a['show_excerpt'] === '1' ) {
+                $excerpt = get_the_excerpt( $post_id );
+                if ( ! $excerpt ) $excerpt = wp_trim_words( strip_shortcodes( get_post_field( 'post_content', $post_id ) ), max( 1, intval( $a['excerpt_words'] ) ) );
+                if ( $excerpt ) echo '<p class="mb-2">' . esc_html( $excerpt ) . '</p>';
+            }
+
+            if ( $a['button'] === '1' ) {
+                echo '<a href="' . esc_url( $permalink ) . '"'
+                    . ( $a['button_class'] ? ' class="' . esc_attr( $a['button_class'] ) . '"' : '' )
+                    . ( $a['button_target'] ? ' target="' . esc_attr( $a['button_target'] ) . '"' : '' )
+                    . ( $a['button_rel'] ? ' rel="' . esc_attr( $a['button_rel'] ) . '"' : '' )
+                    . '>' . esc_html( $a['button_text'] ) . '</a>';
+            }
+
+            echo   '</div>';
+            echo '</div>';
+        }
+
+        echo '</div>';
+        wp_reset_postdata();
+    } else {
+        echo '<p>No services found.</p>';
+    }
+
+    return ob_get_clean();
+}
+
+add_shortcode( 'service_grid', 'ssseo_service_grid_shortcode_v2' );
+
 
 if ( ! function_exists('ssseo_shortcode_city_only') ) {
     function ssseo_shortcode_city_only( $atts = [], $content = null, $tag = '' ) {
@@ -1039,3 +977,82 @@ if ( ! function_exists( 'ssseo_service_area_children_shortcode' ) ) {
 }
 
 add_shortcode( 'service_area_children', 'ssseo_service_area_children_shortcode' );
+
+
+// Remove any older handlers if they exist
+
+/**
+ * Helper: compute the Yoast SEO title for a post, with safe fallbacks.
+ */
+if ( ! function_exists('ssseo_get_yoast_seo_title') ) {
+	function ssseo_get_yoast_seo_title( $post_id = 0 ) {
+		$post_id = $post_id ? (int) $post_id : (int) get_queried_object_id();
+		if ( ! $post_id ) {
+			// Not in a singular context; fall back to site name
+			return get_bloginfo('name');
+		}
+
+		// If Yoast isn't active, just return the native title.
+		if ( ! function_exists('wpseo_replace_vars') ) {
+			return get_the_title( $post_id );
+		}
+
+		// 1) Per-post Yoast title template (raw, may contain %%vars%%)
+		$template = (string) get_post_meta( $post_id, '_yoast_wpseo_title', true );
+
+		// 2) If empty, try Yoast global template for this post type
+		if ( $template === '' ) {
+			$opts = (array) get_option('wpseo_titles', []);
+			$pt   = get_post_type( $post_id );
+			$key  = "post_types-{$pt}-title"; // Yoast option key format
+			if ( ! empty( $opts[$key] ) ) {
+				$template = (string) $opts[$key];
+			}
+		}
+
+		// 3) Final fallback template
+		if ( $template === '' ) {
+			$template = '%%title%% %%page%% %%sep%% %%sitename%%';
+		}
+
+		// Expand Yoast variables using the WP_Post object
+		$post = get_post( $post_id );
+		$title = wpseo_replace_vars( $template, $post );
+
+		// As a last resort, ensure we don't return empty
+		if ( ! is_string($title) || $title === '' ) {
+			$title = get_the_title( $post_id );
+		}
+
+		return $title;
+	}
+}
+
+/**
+ * Shortcode: [yoast_title], alias: [seo_title]
+ *  - post_id (int) optional
+ *  - wrap (0|1) optional: wrap in <span class="yoast-title">
+ *  - before / after (string) optional
+ */
+function ssseo_yoast_title_shortcode( $atts = [] ) {
+	$a = shortcode_atts( [
+		'post_id' => '',
+		'wrap'    => '0',
+		'before'  => '',
+		'after'   => '',
+	], $atts, 'yoast_title' );
+
+	$post_id = (int) $a['post_id'];
+	$title   = ssseo_get_yoast_seo_title( $post_id );
+
+	$out = $a['before'] . $title . $a['after'];
+	if ( $a['wrap'] === '1' ) {
+		$out = '<span class="yoast-title">' . esc_html( $out ) . '</span>';
+	} else {
+		$out = esc_html( $out );
+	}
+
+	return $out;
+}
+add_shortcode( 'yoast_title', 'ssseo_yoast_title_shortcode' );
+add_shortcode( 'seo_title',   'ssseo_yoast_title_shortcode' );
