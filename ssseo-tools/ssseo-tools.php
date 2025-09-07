@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SSSEO Tools
  * Description: Modular plugin for SEO and content enhancements.
- * Version: 3.8
+ * Version: 3.9
  * Author: Dave Barry
  * Text Domain: ssseo
  */
@@ -12,7 +12,12 @@ defined('ABSPATH') || exit;
 // Core Includes
 require_once __DIR__ . '/github-updater.php';
 require_once __DIR__ . '/schema-functions.php';
-require_once __DIR__ . '/admin/ajax.php';
+// Only in admin
+    require_once __DIR__ . '/admin/gsc-oauth-callback.php';
+	require_once __DIR__ . '/admin/ajax.php';
+	require_once __DIR__ . '/admin/gsc-url-inspection.php';
+    //require_once __DIR__ . '/admin/ajax-siteoptions-tests.php';
+
 require_once __DIR__ . '/inc/yoast-log-hooks.php';
 require_once __DIR__ . '/inc/llms-output.php';
 

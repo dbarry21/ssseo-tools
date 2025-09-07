@@ -10,59 +10,25 @@ $has_token = (bool) get_option('ssseo_gsc_token'); // set after OAuth
 $default_property = trailingslashit( home_url('/') ); // must match verified GSC property
 ?>
 <style>
-/* ===== Full width (independent of Bootstrap) ===== */
-#wpbody-content .ssseo-fullbleed {
-  margin-left: -20px;
-  margin-right: -20px;
-}
-@media (max-width: 782px) {
-  #wpbody-content .ssseo-fullbleed {
-    margin-left: -12px;
-    margin-right: -12px;
-  }
-}
-.ssseo-fullbleed .card { border-radius: 0; width: 100%; max-width: none; }
-.ssseo-fullbleed .card-body { width: 100%; max-width: none; }
-
-/* ===== Form row: 3 columns on wide, responsive down ===== */
-.ssseo-form-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(260px, 1fr));
-  gap: 16px;
-  align-items: end;
-}
-@media (max-width: 1200px) {
-  .ssseo-form-grid { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
-}
-@media (max-width: 782px) {
-  .ssseo-form-grid { grid-template-columns: 1fr; }
-}
-
-/* ===== Results split: 2 columns on >=1000px, else stacked ===== */
-.ssseo-results-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-}
-@media (min-width: 1000px) {
-  .ssseo-results-grid { grid-template-columns: 1.4fr 1fr; }
-}
-
-/* ===== Key/Value summary styling ===== */
-.ssseo-kv {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 8px 12px;
-  align-items: start;
-}
-@media (max-width: 782px) {
-  .ssseo-kv { grid-template-columns: 1fr; }
-}
-.ssseo-kv .k { font-weight: 600; color: #333; }
-.ssseo-kv .v code { background: #f6f7f7; padding: 2px 4px; border-radius: 3px; }
-
-/* Make long selects comfy */
-#ssseo-gsc-post { width: 100%; }
+#wpbody-content .ssseo-fullbleed { margin-left:-20px;margin-right:-20px; }
+@media (max-width:782px){#wpbody-content .ssseo-fullbleed{margin-left:-12px;margin-right:-12px;}}
+.ssseo-fullbleed .card{border-radius:0;width:100%;max-width:none;}
+.ssseo-fullbleed .card-body{width:100%;max-width:none;}
+.ssseo-form-grid{display:grid;grid-template-columns:repeat(3,minmax(260px,1fr));gap:16px;align-items:end;}
+@media (max-width:1200px){.ssseo-form-grid{grid-template-columns:repeat(2,minmax(260px,1fr));}}
+@media (max-width:782px){.ssseo-form-grid{grid-template-columns:1fr;}}
+.ssseo-results-grid{display:grid;grid-template-columns:1fr;gap:16px;}
+@media (min-width:1000px){.ssseo-results-grid{grid-template-columns:1.4fr 1fr;}}
+.ssseo-kv{display:grid;grid-template-columns:200px 1fr;gap:8px 12px;align-items:start;}
+@media (max-width:782px){.ssseo-kv{grid-template-columns:1fr;}}
+.ssseo-kv .k{font-weight:600;color:#333;}
+.ssseo-kv .v code{background:#f6f7f7;padding:2px 4px;border-radius:3px;}
+#ssseo-gsc-post{width:100%;}
+.ssseo-manual-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;}
+@media (max-width:782px){.ssseo-manual-row{grid-template-columns:1fr;}}
+.badge{display:inline-block;border-radius:6px;font-size:12px;line-height:1;padding:.25em .6em;}
+.bg-success{background:#198754;color:#fff;}
+.bg-danger{background:#dc3545;color:#fff;}
 </style>
 
 <div class="ssseo-fullbleed">
@@ -83,7 +49,6 @@ $default_property = trailingslashit( home_url('/') ); // must match verified GSC
         </div>
       <?php endif; ?>
 
-      <!-- Form row (independent grid) -->
       <div class="ssseo-form-grid mt-3">
         <div>
           <label class="form-label" for="ssseo-gsc-pt">Post Type</label>
@@ -106,9 +71,7 @@ $default_property = trailingslashit( home_url('/') ); // must match verified GSC
           <input type="url" id="ssseo-gsc-property" class="form-control"
                  value="<?php echo esc_attr($default_property); ?>"
                  placeholder="https://www.example.com/">
-          <div class="form-text">
-            Must exactly match a verified property in Search Console (URL-prefix or domain property).
-          </div>
+          <div class="form-text">Must exactly match a verified property in Search Console (URL-prefix or domain property).</div>
         </div>
       </div>
 
@@ -118,18 +81,27 @@ $default_property = trailingslashit( home_url('/') ); // must match verified GSC
         <div class="form-text">List is limited to published items for speed.</div>
       </div>
 
+      <div class="mt-3">
+        <label class="form-label" for="ssseo-gsc-manual-url">Or inspect a specific URL</label>
+        <div class="ssseo-manual-row">
+          <input type="url" id="ssseo-gsc-manual-url" class="form-control"
+                 placeholder="https://yourdomain.com/path-to-check" inputmode="url" spellcheck="false">
+          <button type="button" id="ssseo-gsc-inspect-url" class="button"><?php echo esc_html__('Inspect URL', 'ssseo'); ?></button>
+        </div>
+        <div class="form-text">Useful for non-WP URLs or parameters/canonical variants.</div>
+      </div>
+
       <div class="mt-3 d-flex align-items-center gap-2">
         <button type="button" id="ssseo-gsc-inspect" class="button button-primary" <?php echo !$has_token ? 'disabled' : ''; ?>>
-          Inspect in Search Console
+          Inspect Selected Post
         </button>
         <span class="spinner" id="ssseo-gsc-spinner" style="float:none; margin-left:8px; display:none;"></span>
         <div id="ssseo-gsc-msg" class="small text-muted"></div>
       </div>
 
-      <!-- Split results: summary (left) + raw JSON (right) -->
       <div class="mt-4 ssseo-results-grid">
         <div id="ssseo-gsc-result" class="card card-body" style="min-height:90px; overflow:auto;">
-          <div class="text-muted">No results yet. Select a post and click <em>Inspect in Search Console</em>.</div>
+          <div class="text-muted">No results yet. Choose a post or enter a URL and click Inspect.</div>
         </div>
         <div class="card card-body">
           <h6 class="mb-2">Raw response</h6>
@@ -142,29 +114,34 @@ $default_property = trailingslashit( home_url('/') ); // must match verified GSC
 
 <script>
 jQuery(function($){
+  if (!window.SSSEO_GSC) {
+    window.SSSEO_GSC = (function(){
+      let ctx = null;
+      return {
+        getCurrentPage(){ return ctx; },
+        setCurrentPage(v){ ctx = v; window.dispatchEvent(new CustomEvent('ssseo:gsc:context')); },
+        clearCurrentPage(){ ctx = null; window.dispatchEvent(new CustomEvent('ssseo:gsc:context')); }
+      };
+    })();
+  }
+
   const POST_URL = '<?php echo esc_js( admin_url('admin-ajax.php') ); ?>';
   if (typeof window.ajaxurl === 'undefined') window.ajaxurl = POST_URL;
 
-  const $pt     = $('#ssseo-gsc-pt');
-  const $list   = $('#ssseo-gsc-post');
-  const $filter = $('#ssseo-gsc-search');
-  const $curr   = $('<div id="ssseo-gsc-current" class="small text-muted mt-2"></div>').insertAfter($('.card-title').closest('.d-flex'));
+  const $pt = $('#ssseo-gsc-pt'), $list = $('#ssseo-gsc-post'), $filter = $('#ssseo-gsc-search');
+  const $curr = $('<div id="ssseo-gsc-current" class="small text-muted mt-2"></div>').insertAfter($('.card-title').closest('.d-flex'));
 
   function renderCurrent(){
     const ctx = (window.SSSEO_GSC && SSSEO_GSC.getCurrentPage()) || null;
     if (ctx && ctx.url) {
       const title = ctx.title ? $('<div/>').text(ctx.title).html() : '';
-      $curr.html(
-        'Current Page: <a href="'+ ctx.url +'" target="_blank" rel="noopener">' + (title || ctx.url) + '</a> ' +
-        '<button type="button" class="button-link delete ssseo-gsc-clear" style="margin-left:6px">clear</button>'
-      );
+      $curr.html('Current Page: <a href="'+ ctx.url +'" target="_blank" rel="noopener">' + (title || ctx.url) + '</a> ' +
+                 '<button type="button" class="button-link delete ssseo-gsc-clear" style="margin-left:6px">clear</button>');
     } else {
       $curr.text('Current Page: none');
     }
   }
   $(document).on('click', '.ssseo-gsc-clear', function(){ SSSEO_GSC && SSSEO_GSC.clearCurrentPage(); renderCurrent(); });
-
-  // Listen for updates from other subtabs
   window.addEventListener('ssseo:gsc:context', renderCurrent);
 
   function loadPostsByType(cb){
@@ -172,18 +149,14 @@ jQuery(function($){
     $list.prop('disabled', true).empty().append($('<option>').text('Loading…'));
     $.post(POST_URL, { action: 'ssseo_get_posts_by_type', post_type: type }, function(res){
       $list.empty();
-      if (res && res.success && res.data) {
-        $list.append(res.data); // HTML <option>… returned by your handler
-      } else {
-        $list.append($('<option>').text('No posts found.'));
-      }
+      if (res && res.success && res.data) { $list.append(res.data); }
+      else { $list.append($('<option>').text('No posts found.')); }
       if (typeof cb === 'function') cb();
-    }).fail(function(){
-      $list.empty().append($('<option>').text('Network error loading posts.'));
+    }).fail(function(xhr){
+      const msg = 'Network error loading posts' + (xhr && xhr.status ? (' (HTTP '+xhr.status+')'):'') + '.';
+      $list.empty().append($('<option>').text(msg));
       if (typeof cb === 'function') cb();
-    }).always(function(){
-      $list.prop('disabled', false);
-    });
+    }).always(function(){ $list.prop('disabled', false); });
   }
 
   function applyFilter(){
@@ -196,7 +169,6 @@ jQuery(function($){
   $pt.on('change', function(){ loadPostsByType(applyFilter); });
   $filter.on('input', applyFilter);
 
-  // Restore saved context if present (post_type + select the post)
   (function restoreContext(){
     renderCurrent();
     const ctx = (window.SSSEO_GSC && SSSEO_GSC.getCurrentPage()) || null;
@@ -210,20 +182,73 @@ jQuery(function($){
     });
   })();
 
-  // Inspect action
+  const $spin = $('#ssseo-gsc-spinner'), $msg = $('#ssseo-gsc-msg');
+  const $out  = $('#ssseo-gsc-result'),  $raw = $('#ssseo-gsc-raw');
+
+  function beginInspect(message){
+    $spin.show(); $msg.text(message || 'Inspecting…');
+    $out.html('<div class="text-muted">Requesting URL Inspection…</div>');
+    $raw.text('');
+  }
+  function endInspect(){ $spin.hide(); }
+
+  function renderResultPayload(d){
+    const sitemapsHTML = (Array.isArray(d.sitemaps) && d.sitemaps.length)
+      ? d.sitemaps.map(function(x){
+          try { new URL(x); return '<a href="'+ x +'" target="_blank" rel="noopener">'+ x +'</a>'; }
+          catch(e){ return x; }
+        }).join('<br>')
+      : '';
+
+    const urlEsc  = d.inspectionUrl ? d.inspectionUrl : '';
+    const urlLink = urlEsc ? ('<a href="'+ urlEsc +'" target="_blank" rel="noopener">'+ urlEsc +'</a>') : '';
+
+    const openGSC = d.openInGsc
+      ? ('<a class="button button-secondary" href="'+ d.openInGsc +'" target="_blank" rel="noopener">Open in Search Console</a>')
+      : '';
+
+    const verdictBadge = d.verdict
+      ? `<span class="badge ${String(d.verdict).toLowerCase()==='pass'?'bg-success':'bg-danger'}">${d.verdict}</span>`
+      : '';
+
+    const html = `
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <div><strong>Result</strong> ${verdictBadge}</div>
+        <div>${openGSC || ''}</div>
+      </div>
+      <div class="ssseo-kv">
+        <div class="k">URL</div><div class="v">${urlLink || ''}</div>
+        <div class="k">Coverage</div><div class="v">${d.coverage || ''}</div>
+        <div class="k">Indexing State</div><div class="v">${d.indexingState || ''}</div>
+        <div class="k">Last Crawl</div><div class="v">${d.lastCrawlTime || ''}</div>
+        <div class="k">Page Fetch</div><div class="v">${d.pageFetchState || ''}</div>
+        <div class="k">Robots.txt</div><div class="v">${d.robotsTxtState || ''}</div>
+        <div class="k">Google Canonical</div><div class="v"><code>${(d.googleCanonical || '')}</code></div>
+        <div class="k">User Canonical</div><div class="v"><code>${(d.userCanonical || '')}</code></div>
+        <div class="k">Sitemaps</div><div class="v">${sitemapsHTML || ''}</div>
+      </div>
+      <hr>
+      <div><strong>Indexed?</strong> ${d.is_indexed ? '✅ Yes' : '❌ No'}</div>
+    `;
+    $out.html(html);
+    $raw.text(JSON.stringify(d.raw || {}, null, 2));
+    $msg.text('Done.');
+  }
+
+  function handleAjaxFail(xhr){
+    const detail = (xhr && xhr.responseText) ? (': ' + xhr.responseText) : '';
+    $out.html('<div class="text-danger">Network error'+detail+'</div>');
+    $msg.text('Failed.');
+  }
+
+  // Inspect selected post
   $('#ssseo-gsc-inspect').on('click', function(){
     const postId = $list.val();
     const siteUrl = $('#ssseo-gsc-property').val();
-
     if (!postId) { alert('Select a post/page to inspect.'); return; }
     if (!siteUrl) { alert('Enter the verified siteUrl property.'); return; }
 
-    const $btn = $(this), $spin = $('#ssseo-gsc-spinner'), $msg = $('#ssseo-gsc-msg');
-    const $out = $('#ssseo-gsc-result'), $raw = $('#ssseo-gsc-raw');
-    $btn.prop('disabled', true); $spin.show(); $msg.text('Inspecting…');
-    $out.html('<div class="text-muted">Requesting URL Inspection…</div>');
-    $raw.text('');
-
+    const $btn = $(this); $btn.prop('disabled', true); beginInspect();
     $.post(POST_URL, {
       action: 'ssseo_gsc_inspect_post',
       nonce: '<?php echo esc_js($gsc_nonce); ?>',
@@ -231,59 +256,51 @@ jQuery(function($){
       site_url: siteUrl
     }, function(res){
       if (res && res.success && res.data) {
-        const d = res.data;
-        // ... your existing render code ...
-        const sitemapsHTML = (function(list){
-          if (!Array.isArray(list) || !list.length) return '';
-          return list.map(function(x){
-            try { new URL(x); return '<a href="'+ x +'" target="_blank" rel="noopener">'+ x +'</a>'; }
-            catch(e){ return x; }
-          }).join('<br>');
-        })(d.sitemaps || []);
-        const urlEsc = d.inspectionUrl ? d.inspectionUrl : '';
-        const urlLink = urlEsc ? ('<a href="'+ urlEsc +'" target="_blank" rel="noopener">'+ urlEsc +'</a>') : '';
-
-        const html = `
-          <div class="ssseo-kv">
-            <div class="k">URL</div><div class="v">${urlLink || ''}</div>
-            <div class="k">Coverage</div><div class="v">${d.coverage || ''}</div>
-            <div class="k">Indexing State</div><div class="v">${d.indexingState || ''}</div>
-            <div class="k">Last Crawl</div><div class="v">${d.lastCrawlTime || ''}</div>
-            <div class="k">Page Fetch</div><div class="v">${d.pageFetchState || ''}</div>
-            <div class="k">Robots.txt</div><div class="v">${d.robotsTxtState || ''}</div>
-            <div class="k">Google Canonical</div><div class="v"><code>${(d.googleCanonical || '')}</code></div>
-            <div class="k">User Canonical</div><div class="v"><code>${(d.userCanonical || '')}</code></div>
-            <div class="k">Sitemaps</div><div class="v">${sitemapsHTML || ''}</div>
-          </div>
-          <hr>
-          <div><strong>Indexed?</strong> ${d.is_indexed ? '✅ Yes' : '❌ No'}</div>
-        `;
-        $out.html(html);
-        $raw.text(JSON.stringify(d.raw || {}, null, 2));
-        $msg.text('Done.');
-
-        // ✅ Save context for other subtabs
+        renderResultPayload(res.data);
         const title = ($list.find('option:selected').text() || '').replace(/\s+\(ID\s*\d+\)\s*$/, '');
         if (window.SSSEO_GSC) {
-          SSSEO_GSC.setCurrentPage({
-            post_id: parseInt(postId,10),
-            post_type: $pt.val(),
-            url: d.inspectionUrl || '',
-            title: title
-          });
+          SSSEO_GSC.setCurrentPage({ post_id: parseInt(postId,10), post_type: $pt.val(), url: res.data.inspectionUrl || '', title: title });
           renderCurrent();
         }
       } else {
         const err = (res && res.data) ? res.data : 'Unknown error';
-        $out.html('<div class="text-danger">Error: ' + err + '</div>');
+        $raw.text(typeof err === 'string' ? err : JSON.stringify(err, null, 2));
+        $out.html('<div class="text-danger">Error: ' + (typeof err === 'string' ? err : (err.message || 'Request failed')) + '</div>');
         $msg.text('Failed.');
       }
-    }).fail(function(){
-      $out.html('<div class="text-danger">Network error.</div>');
-      $msg.text('Failed.');
-    }).always(function(){
-      $btn.prop('disabled', false); $spin.hide();
-    });
+    }).fail(handleAjaxFail).always(function(){ endInspect(); $btn.prop('disabled', false); });
   });
+
+  // Inspect manual URL
+  function doManualInspect() {
+    const manualUrl = $('#ssseo-gsc-manual-url').val().trim();
+    const siteUrl   = $('#ssseo-gsc-property').val();
+    if (!manualUrl) { alert('Enter a URL to inspect.'); return; }
+    if (!siteUrl)   { alert('Enter the verified siteUrl property.'); return; }
+
+    beginInspect('Inspecting URL…');
+    $.post(POST_URL, {
+      action: 'ssseo_gsc_inspect_manual',
+      nonce: '<?php echo esc_js($gsc_nonce); ?>',
+      url: manualUrl,
+      site_url: siteUrl
+    }, function(res){
+      if (res && res.success && res.data) {
+        renderResultPayload(res.data);
+        if (window.SSSEO_GSC) {
+          SSSEO_GSC.setCurrentPage({ post_id: 0, post_type: '', url: res.data.inspectionUrl || manualUrl, title: res.data.inspectionUrl || manualUrl });
+          renderCurrent();
+        }
+      } else {
+        const err = (res && res.data) ? res.data : 'Unknown error';
+        $raw.text(typeof err === 'string' ? err : JSON.stringify(err, null, 2));
+        $out.html('<div class="text-danger">Error: ' + (typeof err === 'string' ? err : (err.message || 'Request failed')) + '</div>');
+        $msg.text('Failed.');
+      }
+    }).fail(handleAjaxFail).always(endInspect);
+  }
+
+  $('#ssseo-gsc-inspect-url').on('click', doManualInspect);
+  $('#ssseo-gsc-manual-url').on('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); doManualInspect(); }});
 });
 </script>
