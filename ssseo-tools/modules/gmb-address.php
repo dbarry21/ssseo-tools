@@ -103,45 +103,83 @@ function ssseo_dbg_tag( $label, $pairs = [] ) {
  * [gmb_address]
  * --------------------------------------------------------------------- */
 /**
- * Shortcode: [gmb_address place_id="" company="" parts="street,suite,city,state,postal" join=", " link="0" schema="0" class="" cache="1440" region="us" language="en" debug="0"]
+ * Shortcode:
+ * [gmb_address
+ *    place_id=""
+ *    company=""
+ *    parts="street,suite,city,state,postal"
+ *    join=", "
+ *    link="0"
+ *    schema="0"
+ *    class=""
+ *    cache="1440"
+ *    region="us"
+ *    language="en"
+ *    debug="0"
+ *    stack="0"                     ; NEW: split after first comma into two lines
+ *    directions="0"
+ *    directions_label="Get Directions"
+ *    directions_mode=""            ; driving|walking|bicycling|transit
+ *    directions_target="_blank"
+ *    directions_class="gmb-directions"
+ *    directions_link_class="btn btn-link"
+ * ]
  */
-remove_shortcode('gmb_address');
 add_shortcode('gmb_address', function( $atts ) {
 	$atts = shortcode_atts([
-		'place_id'         => '',
-		'company'          => '',
-		'parts'            => 'street,suite,city,state,postal',
-		'join'             => ', ',
-		'class'            => '',
-		'link'             => '0',
-		'schema'           => '0',
-		'cache'            => 1440,
-		'region'           => 'us',
-		'language'         => 'en',
-		'debug'            => '0',
-		// NEW: directions link controls
-		'directions'       => '0',
-		'directions_label' => 'Get Directions',
-		'directions_mode'  => '',                 // driving|walking|bicycling|transit
-		'directions_target'=> '_blank',
-		'directions_class' => 'gmb-directions',
+		'place_id'              => '',
+		'company'               => '',
+		'parts'                 => 'street,suite,city,state,postal',
+		'join'                  => ', ',
+		'class'                 => '',
+		'link'                  => '0',
+		'schema'                => '0',
+		'cache'                 => 1440,
+		'region'                => 'us',
+		'language'              => 'en',
+		'debug'                 => '0',
+
+		// NEW: stacked output
+		'stack'                 => '0',  // 0|1 – split after the first comma in the final string
+
+		// Directions link controls
+		'directions'            => '0',
+		'directions_label'      => 'Get Directions',
+		'directions_mode'       => '',                 // driving|walking|bicycling|transit
+		'directions_target'     => '_blank',
+		'directions_class'      => 'gmb-directions',
+		'directions_link_class' => 'btn btn-link',
 	], $atts, 'gmb_address');
 
 	$api_key  = ssseo_get_google_places_api_key();
-	if ( $api_key === '' ) return ( $atts['debug'] === '1' ) ? '<em>gmb_address: API key not set</em>' : '<!-- gmb_address: missing api key -->';
+	if ( $api_key === '' ) {
+		return ( $atts['debug'] === '1' )
+			? '<em>gmb_address: API key not set</em>'
+			: '<!-- gmb_address: missing api key -->';
+	}
 
 	// Resolve Place ID: attribute → company → default
 	$pid_source = 'attr';
 	$place_id   = trim( (string) $atts['place_id'] );
 	if ( $place_id === '' && $atts['company'] !== '' ) {
-		$place_id   = ssseo_gmb_resolve_place_id( sanitize_text_field($atts['company']), $api_key, sanitize_text_field($atts['region']), sanitize_text_field($atts['language']), (int)$atts['cache'] );
+		$place_id   = ssseo_gmb_resolve_place_id(
+			sanitize_text_field($atts['company']),
+			$api_key,
+			sanitize_text_field($atts['region']),
+			sanitize_text_field($atts['language']),
+			(int)$atts['cache']
+		);
 		$pid_source = 'company';
 	}
 	if ( $place_id === '' ) {
 		$place_id   = ssseo_get_default_place_id();
 		$pid_source = 'default';
 	}
-	if ( $place_id === '' ) return ( $atts['debug'] === '1' ) ? '<em>gmb_address: no place_id available</em>' : '<!-- gmb_address: missing place_id -->';
+	if ( $place_id === '' ) {
+		return ( $atts['debug'] === '1' )
+			? '<em>gmb_address: no place_id available</em>'
+			: '<!-- gmb_address: missing place_id -->';
+	}
 
 	$cache_minutes = max( 1, (int) $atts['cache'] );
 	$transient_key = 'ssseo_gmb_addr_' . md5( $place_id . '|' . strtolower($atts['language']) . '|v3' );
@@ -155,20 +193,26 @@ add_shortcode('gmb_address', function( $atts ) {
 	} else {
 		$hit = false;
 		$endpoint = add_query_arg([
-			'place_id' => $place_id,          // do not pre-encode
+			'place_id' => $place_id,
 			'fields'   => 'address_components,formatted_address,url,name',
 			'language' => $atts['language'],
 			'key'      => $api_key,
 		], 'https://maps.googleapis.com/maps/api/place/details/json');
 
 		$response = wp_remote_get( $endpoint, [ 'timeout' => 25 ] );
-		if ( is_wp_error($response) ) return ( $atts['debug'] === '1' ) ? '<em>gmb_address error: '.esc_html($response->get_error_message()).'</em>' : '<!-- gmb_address: api error -->';
+		if ( is_wp_error($response) ) {
+			return ( $atts['debug'] === '1' )
+				? '<em>gmb_address error: '.esc_html($response->get_error_message()).'</em>'
+				: '<!-- gmb_address: api error -->';
+		}
 
 		$code = (int) wp_remote_retrieve_response_code($response);
 		$body = json_decode( wp_remote_retrieve_body($response), true );
 		if ( $code !== 200 || !is_array($body) || ($body['status'] ?? '') !== 'OK' ) {
 			$msg = isset($body['status']) ? $body['status'] : 'unknown';
-			return ( $atts['debug'] === '1' ) ? '<em>gmb_address API status: '.esc_html($msg).'</em>' : '<!-- gmb_address: api status ' . esc_html($msg) . ' -->';
+			return ( $atts['debug'] === '1' )
+				? '<em>gmb_address API status: '.esc_html($msg).'</em>'
+				: '<!-- gmb_address: api status ' . esc_html($msg) . ' -->';
 		}
 
 		$result   = $body['result'] ?? [];
@@ -223,38 +267,64 @@ add_shortcode('gmb_address', function( $atts ) {
 	];
 	$pieces = [];
 	foreach ( $want_parts as $key ) {
-		if ( isset($map[$key]) && $map[$key] !== '' ) $pieces[] = $map[$key];
+		if ( isset($map[$key]) && $map[$key] !== '' ) {
+			$pieces[] = $map[$key];
+		}
 	}
 	$joiner  = (string) $atts['join'];
-	$content = implode( $joiner, array_map( 'esc_html', $pieces ) );
+	$flat    = implode( $joiner, $pieces );
+	$content = esc_html( $flat );
 
-	// Build Directions URL if requested
-	$directions_html = '';
-	if ( $atts['directions'] === '1' ) {
-		// Build Directions URL (Maps URLs require destination + destination_place_id)
-$mode = strtolower( trim( (string) $atts['directions_mode'] ) );
-$allowed_modes = ['driving','walking','bicycling','transit'];
-$args = [
-    'api'                    => '1',
-    'destination'            => $name ?: $street_line ?: 'Destination',
-    'destination_place_id'   => $place_id,
-];
-if ( in_array($mode, $allowed_modes, true) ) {
-    $args['travelmode'] = $mode;
-}
-// optional: force nav UI on mobile
-// $args['dir_action'] = 'navigate';
+	// ----- STACKED OUTPUT (split after first comma) -----
+	if ( $atts['stack'] === '1' ) {
+		$line1 = $content;
+		$line2 = '';
 
-$dir_url = add_query_arg( $args, 'https://www.google.com/maps/dir/' );
+		// Find first comma in the already-joined, human string
+		$commaPos = strpos( $content, ',' );
+		if ( $commaPos !== false ) {
+			$line1 = trim( substr( $content, 0, $commaPos ) );
+			$line2 = trim( ltrim( substr( $content, $commaPos + 1 ), " \t\n\r\0\x0B," ) );
+		} elseif ( count($pieces) > 1 ) {
+			// Fallback: split between first piece and the rest
+			$line1 = esc_html( $pieces[0] );
+			$line2 = esc_html( implode( $joiner, array_slice( $pieces, 1 ) ) );
+		}
 
-$directions_html = '<div class="' . esc_attr( $atts['directions_class'] ) . '">'
-  . '<a class="' . esc_attr( $atts['directions_link_class'] ) . '" href="' . esc_url( $dir_url ) . '" target="' . esc_attr( $atts['directions_target'] ) . '" rel="noopener">'
-  . esc_html( $atts['directions_label'] )
-  . '</a></div>';
-
+		// Rebuild stacked content
+		$content = $line1 . ( $line2 !== '' ? '<br>' . $line2 : '' );
 	}
 
-	// Schema mode
+	// ----- Directions URL (optional) -----
+	$directions_html = '';
+	if ( $atts['directions'] === '1' ) {
+		$mode = strtolower( trim( (string) $atts['directions_mode'] ) );
+		$allowed_modes = ['driving','walking','bicycling','transit'];
+		$args = [
+			'api'                  => '1',
+			'destination'          => $name ?: $street_line ?: 'Destination',
+			'destination_place_id' => $place_id,
+		];
+		if ( in_array($mode, $allowed_modes, true) ) {
+			$args['travelmode'] = $mode;
+		}
+
+		$dir_url = add_query_arg( $args, 'https://www.google.com/maps/dir/' );
+
+		$directions_html =
+			'<div class="' . esc_attr( $atts['directions_class'] ) . '">'
+			. '<a class="' . esc_attr( $atts['directions_link_class'] ) . '"'
+			. ' href="' . esc_url( $dir_url ) . '"'
+			. ' target="' . esc_attr( $atts['directions_target'] ) . '" rel="noopener">'
+			. esc_html( $atts['directions_label'] )
+			. '</a></div>';
+	}
+
+	// Normalize wrapper classes (allow multiple classes)
+	$extra_class = trim( (string) $atts['class'] );
+	$wrap_class  = 'gmb-address' . ( $extra_class ? ' ' . preg_replace('/[^A-Za-z0-9_\-\s]/', '', $extra_class) : '' );
+
+	// ----- Schema mode -----
 	if ( $atts['schema'] === '1' ) {
 		$schema = [
 			'@context'        => 'https://schema.org',
@@ -265,26 +335,31 @@ $directions_html = '<div class="' . esc_attr( $atts['directions_class'] ) . '">'
 			'postalCode'      => $components['postal_code'],
 			'addressCountry'  => $components['country'],
 		];
-		$addr_html  = '<address class="gmb-address'. ( $atts['class'] ? ' '.esc_attr($atts['class']) : '' ) .'">';
-		$addr_html .= esc_html( $content );
+		$addr_html  = '<address class="' . esc_attr($wrap_class) . '">';
+		$addr_html .= $content; // already escaped/assembled (may include <br>)
 		$addr_html .= '</address>';
 		$addr_html .= $directions_html; // show directions under the address
 		$addr_html .= '<script type="application/ld+json">'. wp_json_encode($schema, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) .'</script>';
-		if ( $atts['debug'] === '1' ) $addr_html .= ssseo_dbg_tag('gmb_address', ['pid-source'=>$pid_source, 'cache'=>$hit?'hit':'miss']);
+		if ( $atts['debug'] === '1' ) {
+			$addr_html .= ssseo_dbg_tag('gmb_address', ['pid-source'=>$pid_source, 'cache'=>$hit?'hit':'miss']);
+		}
 		return $addr_html;
 	}
 
-	// Link mode (wrap address text in place URL), then add directions link below
+	// ----- Link mode (wrap address text in Place URL), then add directions link below -----
 	$inner = $content;
 	if ( $atts['link'] === '1' && ! empty($maps_url) ) {
 		$inner = '<a href="'. esc_url($maps_url) .'" target="_blank" rel="noopener" class="btn btn-primary">'. $inner .'</a>';
 	}
-	//$wrap_class = 'gmb-address'. ( $atts['class'] ? ' '.esc_attr($atts['class']) : '' );
-	$out = '<span class="'. $wrap_class .'">'. $inner .'</span>' . $directions_html;
 
-	if ( $atts['debug'] === '1' ) $out .= ssseo_dbg_tag('gmb_address', ['pid-source'=>$pid_source, 'cache'=>$hit?'hit':'miss']);
+	$out = '<span class="'. esc_attr($wrap_class) .'">'. $inner .'</span>' . $directions_html;
+
+	if ( $atts['debug'] === '1' ) {
+		$out .= ssseo_dbg_tag('gmb_address', ['pid-source'=>$pid_source, 'cache'=>$hit?'hit':'miss']);
+	}
 	return $out;
 });
+
 
 
 /** -----------------------------------------------------------------------

@@ -144,3 +144,95 @@ function ssseo_save_about_the_area_metabox($post_id) {
     }
 }
 
+// ===== Admin List Table: "Order" (menu_order) column for service + service_area =====
+
+add_action('init', function () {
+    // If your CPTs don't already support menu_order, add 'page-attributes'
+    // so they get an "Order" box in the editor and menu_order is enabled.
+    $ensure_supports = function( $post_type ) {
+        $obj = get_post_type_object( $post_type );
+        if ( $obj && empty( $obj->supports ) ) {
+            // When 'supports' was omitted during register_post_type, WP adds defaults lazily.
+            // We can still add supports safely here.
+            add_post_type_support( $post_type, 'page-attributes' );
+        } else {
+            add_post_type_support( $post_type, 'page-attributes' );
+        }
+    };
+
+    foreach (['service', 'service_area'] as $pt) {
+        $ensure_supports($pt);
+    }
+});
+
+/**
+ * Add the column.
+ */
+foreach (['service', 'service_area'] as $pt) {
+    // Add header
+    add_filter("manage_{$pt}_posts_columns", function ($columns) {
+        // Insert 'Order' after the title if possible
+        $new = [];
+        foreach ($columns as $key => $label) {
+            $new[$key] = $label;
+            if ($key === 'title') {
+                $new['menu_order'] = __('Order', 'ssseo');
+            }
+        }
+        // Fallback (if 'title' wasn't found for some reason)
+        if (! isset($new['menu_order'])) {
+            $new['menu_order'] = __('Order', 'ssseo');
+        }
+        return $new;
+    });
+
+    // Render cell
+    add_action("manage_{$pt}_posts_custom_column", function ($column, $post_id) {
+        if ($column === 'menu_order') {
+            $order = (int) get_post_field('menu_order', $post_id);
+            echo esc_html($order);
+        }
+    }, 10, 2);
+
+    // Make sortable
+    add_filter("manage_edit-{$pt}_sortable_columns", function ($sortable) {
+        $sortable['menu_order'] = 'menu_order';
+        return $sortable;
+    });
+}
+
+/**
+ * Handle sorting by menu_order on those screens.
+ */
+add_action('pre_get_posts', function ($query) {
+    if ( ! is_admin() || ! $query->is_main_query() ) return;
+
+    $post_type = $query->get('post_type');
+    $allowed   = ['service', 'service_area'];
+
+    if (in_array($post_type, $allowed, true)) {
+        // If user clicked the Order column or explicitly requested it
+        if ($query->get('orderby') === 'menu_order') {
+            // Keep titles secondary so items with same order are grouped predictably
+            $query->set('orderby', [
+                'menu_order' => strtoupper($query->get('order')) === 'DESC' ? 'DESC' : 'ASC',
+                'title'      => 'ASC',
+            ]);
+        }
+    }
+});
+
+/**
+ * Tidy up the column width and alignment on those screens.
+ */
+add_action('admin_head-edit.php', function () {
+    $screen = get_current_screen();
+    if (empty($screen->post_type)) return;
+
+    if (in_array($screen->post_type, ['service', 'service_area'], true)) {
+        echo '<style>
+            .column-menu_order { width: 80px; text-align: center; }
+            .fixed .column-menu_order { width: 80px; }
+        </style>';
+    }
+});

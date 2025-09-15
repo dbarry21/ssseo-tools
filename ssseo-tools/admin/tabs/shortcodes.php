@@ -7,6 +7,7 @@
  *   - modules/map-embed-shortcode.php
  *   - /mnt/data/shortcodes.php
  *   - /mnt/data/shortcodes-card-grid.php
+ *   - social-sharing.php (social share modal + icon trigger)
  *
  * This tab does not register shortcodes. It checks availability with shortcode_exists().
  */
@@ -23,6 +24,36 @@ $exists_chip = function( $tag ) {
 
 /** catalog */
 $shortcodes = [
+
+/** =========================
+ * SOCIAL / SHARING
+ * ========================= */
+[
+  'title'    => 'Social Share (Button + Modal)',
+  'tag'      => 'social_share',
+  'desc'     => 'Renders a primary Share button that opens a Bootstrap 5 modal with quick-share actions (Facebook, X/Twitter, WhatsApp, Email, Copy Link). This shortcode <em>automatically enqueues</em> Bootstrap 5 CSS/JS and Bootstrap Icons on the front end.<br><br><strong>Modal ID:</strong> <code>#socialShareModal</code>. Place the shortcode once per page (unique ID). You can also trigger the same modal from any custom link or button using <code>data-bs-toggle="modal"</code> and <code>data-bs-target="#socialShareModal"</code>.',
+  'attrs'    => [
+      'No attributes. Style the output via CSS classes included in the shortcode template.',
+  ],
+  'examples' => [
+      '[social_share]',
+      // additional guidance example (non-shortcode):
+      'HTML trigger example: <a href="#" data-bs-toggle="modal" data-bs-target="#socialShareModal">Open Share Modal</a>',
+  ],
+  'returns'  => 'Outputs a <code>&lt;button class="btn btn-primary"&gt;</code> trigger and a centered modal (<code>.modal.fade</code>) with share icons. The modal copies the current page URL/title for sharing.'
+],
+[
+  'title'    => 'Social Share (Icon-Only Trigger)',
+  'tag'      => 'social_share_icon',
+  'desc'     => 'Renders a compact square icon button (uses Elementor’s <code>--e-global-color-primary</code> for background) that opens the same Share modal (<code>#socialShareModal</code>). Good for headers, cards, or tight spaces. Automatically enqueues Bootstrap 5 + Icons.',
+  'attrs'    => [
+      'No attributes. Style the icon via the included <code>.social-icon-button</code> class or your theme CSS.',
+  ],
+  'examples' => [
+      '[social_share_icon]',
+  ],
+  'returns'  => 'Outputs a minimal <code>&lt;button class="social-icon-button"&gt;</code> trigger and the same modal markup as <code>[social_share]</code>.'
+],
 
 /** =========================
  * MAPS / EMBED
@@ -320,7 +351,7 @@ $shortcodes = [
                     <td><code><?php echo esc_html($def); ?></code></td>
                     <td><?php echo wp_kses_post($desc); ?></td>
                   </tr>
-                <?php else: // string fallback for legacy entries ?>
+                <?php else: // string fallback for notes / no-attr messages ?>
                   <tr>
                     <td colspan="4"><?php echo wp_kses_post( $a ); ?></td>
                   </tr>
